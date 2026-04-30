@@ -122,34 +122,93 @@ const FundsPage = () => {
       if (s.exists()) setDepositSettings(s.data());
     });
 
-    // Check for IMB Success redirection (e.g., /funds?status=success&amount=100)
+    // Check for Gateway Redirection
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('status') === 'success' && urlParams.get('amount') && userUid) {
-      const amt = parseFloat(urlParams.get('amount'));
-      setImbSuccessAmount(amt);
-      setShowImbSuccess(true);
-      
-      // Update wallet (Note: In production, this should be verified server-side)
-      const userRef = doc(db, "users", userUid);
-      updateDoc(userRef, {
-        wallet_balance: increment(amt)
-      }).then(() => {
-        // Add to history
-        addDoc(collection(db, "deposits"), {
-          userId: userUid,
-          amount: amt,
-          method: 'IMB UPI',
-          status: 'approved',
-          created_at: serverTimestamp(),
-          note: 'Automatic IMB Deposit'
-        });
-      });
+    const txnStatus = urlParams.get('status')?.toLowerCase();
+    const clientTxnId = urlParams.get('client_txn_id');
+    const urlAmount = urlParams.get('amount');
 
-      // Clear params and hide after 3 seconds
-      setTimeout(() => {
-        setShowImbSuccess(false);
-        navigate('/funds', { replace: true });
-      }, 3000);
+    if ((txnStatus === 'success' || txnStatus === 'completed') && userUid) {
+      // Clear URL to prevent refresh issues
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      if (clientTxnId) {
+        // Securely verify transaction with gateway
+        const verifyTxn = async () => {
+          try {
+            // Check if already processed
+            const q = query(collection(db, "deposits"), where("txnId", "==", clientTxnId));
+            const snap = await getDocs(q);
+            if (!snap.empty) return; // Already credited
+
+            const today = new Date();
+            const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+            const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
+            const payload = {
+              key: 'c2ce65c8-e370-466e-9978-643698cf44f3', // Fallback key
+              client_txn_id: clientTxnId,
+              txn_date: dateStr
+            };
+
+            const response = await fetch(proxyUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                url: 'https://api.ekqr.in/api/v2/check_order_status', 
+                payload: payload,
+                headers: { 'Authorization': `Bearer ${payload.key}` }
+              })
+            });
+
+            const result = await response.json();
+            const apiStatus = result.data?.status?.toUpperCase() || '';
+
+            if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
+              const amt = Number(result.data.amount);
+              setImbSuccessAmount(amt);
+              setShowImbSuccess(true);
+              
+              const userRef = doc(db, "users", userUid);
+              await updateDoc(userRef, { wallet_balance: increment(amt) });
+
+              await addDoc(collection(db, "deposits"), {
+                userId: userUid,
+                amount: amt,
+                method: 'UPI Gateway',
+                status: 'approved',
+                created_at: serverTimestamp(),
+                txnId: clientTxnId,
+                gatewayOrderId: result.data.order_id || '',
+                note: 'Verified Redirect Deposit'
+              });
+
+              setTimeout(() => setShowImbSuccess(false), 3000);
+            }
+          } catch (err) {
+            console.error("Verification failed:", err);
+          }
+        };
+        verifyTxn();
+      } else if (urlAmount) {
+        // Legacy fallback
+        const amt = parseFloat(urlAmount);
+        setImbSuccessAmount(amt);
+        setShowImbSuccess(true);
+        
+        const userRef = doc(db, "users", userUid);
+        updateDoc(userRef, { wallet_balance: increment(amt) }).then(() => {
+          addDoc(collection(db, "deposits"), {
+            userId: userUid,
+            amount: amt,
+            method: 'IMB UPI',
+            status: 'approved',
+            created_at: serverTimestamp(),
+            note: 'Legacy Redirect Deposit'
+          });
+        });
+
+        setTimeout(() => setShowImbSuccess(false), 3000);
+      }
     }
 
     return () => unsub();
@@ -764,7 +823,8 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           }
           
           const result = await response.json();
-          if (result && result.status && result.data.status === 'COMPLETED') {
+          const apiStatus = result.data?.status?.toUpperCase() || '';
+          if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
             setPaymentStatus('COMPLETED');
             setPollingActive(false);
             
@@ -782,11 +842,11 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
               status: 'approved',
               created_at: serverTimestamp(),
               txnId: gatewayData.client_txn_id,
-              gatewayOrderId: gatewayData.order_id
+              gatewayOrderId: gatewayData.order_id || ''
             });
 
             alert(`₹${result.data.amount} has been successfully added to your wallet!`);
-          } else if (result.status && result.data.status === 'FAILED') {
+          } else if (result.status && (apiStatus === 'FAILED' || apiStatus === 'FAILURE')) {
             setPaymentStatus('FAILED');
             setPollingActive(false);
           }
