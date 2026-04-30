@@ -2230,6 +2230,28 @@ const AdminPanel = () => {
                     style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '12px', width: '100%', fontSize: '0.9rem'}}
                   />
                 </div>
+                <div className="form-group" style={{marginBottom: '20px'}}>
+                  <label style={{fontSize: '0.9rem', fontWeight: '700', color: '#4A5568', display: 'block', marginBottom: '5px'}}>Webhook URL (Copy to IMB Dashboard)</label>
+                  <div style={{display: 'flex', gap: '10px'}}>
+                    <input 
+                      type="text" 
+                      readOnly
+                      value="https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/imbWebhook" 
+                      style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '12px', width: '100%', fontSize: '0.8rem', background: '#F4F7FE'}}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/imbWebhook");
+                        alert("Copied!");
+                      }}
+                      style={{padding: '0 15px', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.8rem', cursor: 'pointer'}}
+                    >
+                      COPY
+                    </button>
+                  </div>
+                  <p style={{fontSize: '0.7rem', color: '#718096', marginTop: '5px'}}>Set this URL in your IMB merchant dashboard for automatic crediting.</p>
+                </div>
 
                 <button 
                   onClick={handleSaveIMBGateway}
