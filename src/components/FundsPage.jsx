@@ -1072,7 +1072,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           return;
         }
 
-        let createUrl = settings.imb_api_url || 'https://secure-stage.imb.org.in/api/create-order';
+        let createUrl = settings.imb_api_url || 'https://secure.imb.org.in/';
         
         // Safety: Strip any old corsproxy wrapper if accidentally saved in Admin Panel
         if (createUrl.includes('corsproxy.io')) {

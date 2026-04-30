@@ -399,7 +399,7 @@ const AdminPanel = () => {
         setUpiId(data.upi_id || '');
         setQrCodeUrl(data.qr_url || '');
         setImbAccessToken(data.imb_token || '');
-        setImbApiUrl(data.imb_url || '');
+        setImbApiUrl(data.imb_api_url || '');
         setUpiGatewayId(data.upi_gateway_id || '');
         setUpiGatewayUrl(data.upi_gateway_url || '');
         setActivePaymentMethod(data.active_method || 'MANUAL');
@@ -1173,7 +1173,7 @@ const AdminPanel = () => {
     try {
       await setDoc(doc(db, "settings", "deposit"), {
         imb_access_token: imbAccessToken,
-        imb_api_url: imbApiUrl || 'https://secure-stage.imb.org.in/api/create-order',
+        imb_api_url: imbApiUrl || 'https://secure.imb.org.in/',
         updated_at: serverTimestamp(),
         last_updated_by: isAdminLoggedIn?.username || 'admin'
       }, { merge: true });
@@ -2216,8 +2216,9 @@ const AdminPanel = () => {
                   <label style={{fontSize: '0.9rem', fontWeight: '700', color: '#4A5568', display: 'block', marginBottom: '5px'}}>IMB API URL</label>
                   <input 
                     type="text" 
-                    value={imbApiUrl || 'https://secure-stage.imb.org.in/api/create-order'} 
+                    value={imbApiUrl || 'https://secure.imb.org.in/'} 
                     onChange={e => setImbApiUrl(e.target.value)} 
+                    placeholder="https://secure.imb.org.in/"
                     style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '12px', width: '100%', fontSize: '0.9rem'}}
                   />
                 </div>
