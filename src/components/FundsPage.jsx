@@ -126,13 +126,14 @@ const FundsPage = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const txnStatus = urlParams.get('status')?.toLowerCase();
     const clientTxnId = urlParams.get('client_txn_id');
+    const gateway = urlParams.get('gateway');
     const urlAmount = urlParams.get('amount');
 
-    if ((txnStatus === 'success' || txnStatus === 'completed') && userUid) {
+    if ((txnStatus === 'success' || txnStatus === 'completed' || gateway === 'ekqr') && userUid) {
       // Clear URL to prevent refresh issues
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      if (clientTxnId) {
+      if (clientTxnId && (gateway === 'ekqr' || txnStatus === 'success')) {
         // Securely verify transaction with gateway
         const verifyTxn = async () => {
           try {
@@ -825,6 +826,15 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           const result = await response.json();
           const apiStatus = result.data?.status?.toUpperCase() || '';
           if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
+            // Idempotency check: prevent race conditions with multiple interval fires
+            const q = query(collection(db, "deposits"), where("txnId", "==", gatewayData.client_txn_id));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              setPaymentStatus('COMPLETED');
+              setPollingActive(false);
+              return;
+            }
+
             setPaymentStatus('COMPLETED');
             setPollingActive(false);
             
@@ -955,7 +965,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           customer_name: userName || 'User',
           customer_email: userEmail || 'user@swamiji.com',
           customer_mobile: userPhone || '9999999999',
-          redirect_url: 'https://swamijimatka.com/funds?status=success&amount=' + amt
+          redirect_url: `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`
         };
 
         let response;
