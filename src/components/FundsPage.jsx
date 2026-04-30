@@ -1097,7 +1097,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           order_id: order_id,
           redirect_url: `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}`,
           remark1: userEmail || 'user@swamiji.com',
-          remark2: userUid // Crucial for Webhook identification
+          remark2: userId // Crucial for Webhook identification
         };
 
         let result;
