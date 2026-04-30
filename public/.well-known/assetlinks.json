@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.swamijimatka.twa",
+        "sha256_cert_fingerprints": ["91:05:48:F0:91:A0:37:A5:17:39:52:BA:66:6E:D3:71:38:41:5C:89:C8:A0:58:77:DC:96:05:57:75:69:9A:8C"]
+      }
+    }]

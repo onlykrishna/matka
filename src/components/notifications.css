@@ -1,0 +1,141 @@
+.notifications-container {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  padding-bottom: 2rem;
+}
+
+.notifications-header {
+  background: linear-gradient(135deg, #1A237E 0%, #0D47A1 100%);
+  padding: 1.25rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.notifications-header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.back-btn:active {
+  background: rgba(255,255,255,0.1);
+}
+
+.notifications-list {
+  padding: 1rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.notif-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.3s ease-out;
+}
+
+.notif-icon {
+  background: rgba(255, 102, 0, 0.1);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-content {
+  flex: 1;
+}
+
+.notif-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.notif-top h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1A237E;
+}
+
+.notif-time {
+  font-size: 0.75rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notif-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #444;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.notif-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #999;
+}
+
+.notif-empty p {
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+  color: #666;
+}
+
+.notif-loading {
+  text-align: center;
+  padding: 4rem;
+  color: #666;
+}
+
+.notif-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #eee;
+  border-top-color: #FF6600;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

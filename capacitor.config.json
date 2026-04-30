@@ -1,0 +1,10 @@
+{
+  "appId": "com.matka.app",
+  "appName": "Swami Ji Matka",
+  "webDir": "dist",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}
