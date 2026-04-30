@@ -1072,7 +1072,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           return;
         }
 
-        let createUrl = settings.imb_api_url || 'https://secure.imb.org.in/';
+        let createUrl = settings.imb_api_url || 'https://secure.imbpayment.in/';
         
         // Safety: Strip any old corsproxy wrapper if accidentally saved in Admin Panel
         if (createUrl.includes('corsproxy.io')) {
@@ -1104,17 +1104,22 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
         if (isNative) {
           // Construct form data for native fetch
           const formData = new URLSearchParams();
-          Object.keys(payload).forEach(key => formData.append(key, payload[key]));
+          Object.keys(payload).forEach(key => formData.append(key, String(payload[key])));
           
           const response = await fetch(createUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData.toString()
           });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+          }
           result = await response.json();
         } else {
-          // Web: Use the generic payment proxy
-          const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
+          // Web: Use the internal payment proxy
+          const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
           const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1124,6 +1129,17 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
               useFormEncoding: true 
             })
           });
+          
+          if (!response.ok) {
+            // Even if proxy fails, it now returns JSON if possible
+            try {
+              const errorJson = await response.json();
+              throw new Error(errorJson.message || `Proxy Error ${response.status}`);
+            } catch (e) {
+              const errorText = await response.text();
+              throw new Error(`Proxy Error ${response.status}: ${errorText.substring(0, 100)}`);
+            }
+          }
           result = await response.json();
         }
 
@@ -1131,6 +1147,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           // For IMB, we'll redirect directly or show QR
           window.location.href = result.result.payment_url;
         } else {
+          // IMB returns message in 'message' field
           throw new Error(result.message || "Failed to create IMB order");
         }
       } catch (err) {

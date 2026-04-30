@@ -13,22 +13,28 @@ admin.initializeApp();
 exports.paymentProxy = onRequest({ region: "us-central1", timeoutSeconds: 30 }, async (req, res) => {
   return cors(req, res, async () => {
     if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
+      return res.status(405).json({ status: false, message: 'Method Not Allowed' });
     }
 
     try {
       const { url, payload, headers = {}, useFormEncoding = false } = req.body;
       if (!url || !payload) {
-        return res.status(400).send('Missing url or payload');
+        return res.status(400).json({ status: false, message: 'Missing url or payload' });
       }
 
       console.log(`[Proxy] Forwarding request to: ${url}`);
+      console.log(`[Proxy] Payload:`, JSON.stringify(payload));
       
       let finalPayload = payload;
       let finalHeaders = { ...headers };
 
       if (useFormEncoding) {
-        finalPayload = qs.stringify(payload);
+        // Ensure all payload values are strings for form encoding
+        const stringifiedPayload = {};
+        for (const key in payload) {
+          stringifiedPayload[key] = String(payload[key]);
+        }
+        finalPayload = qs.stringify(stringifiedPayload);
         finalHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
       } else {
         finalHeaders['Content-Type'] = 'application/json';
@@ -36,17 +42,19 @@ exports.paymentProxy = onRequest({ region: "us-central1", timeoutSeconds: 30 }, 
 
       const response = await axios.post(url, finalPayload, {
         headers: finalHeaders,
-        timeout: 25000
+        timeout: 25000,
+        validateStatus: () => true // Don't throw on 4xx/5xx
       });
 
-      return res.status(200).json(response.data);
+      console.log(`[Proxy] Gateway Status: ${response.status}`);
+      return res.status(response.status).json(response.data);
     } catch (error) {
-      console.error('[Proxy] Error forwarding request:', error.message);
-      if (error.response) {
-        console.error('[Proxy] Gateway Error Response:', JSON.stringify(error.response.data));
-        return res.status(error.response.status).json(error.response.data);
-      }
-      return res.status(500).send('Internal Server Error');
+      console.error('[Proxy] Critical Error:', error.message);
+      return res.status(500).json({ 
+        status: false, 
+        message: 'Internal Proxy Error: ' + error.message,
+        details: error.stack
+      });
     }
   });
 });

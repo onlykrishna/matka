@@ -1173,7 +1173,7 @@ const AdminPanel = () => {
     try {
       await setDoc(doc(db, "settings", "deposit"), {
         imb_access_token: imbAccessToken,
-        imb_api_url: imbApiUrl || 'https://secure.imb.org.in/',
+        imb_api_url: imbApiUrl || 'https://secure.imbpayment.in/',
         updated_at: serverTimestamp(),
         last_updated_by: isAdminLoggedIn?.username || 'admin'
       }, { merge: true });
@@ -2216,11 +2216,14 @@ const AdminPanel = () => {
                   <label style={{fontSize: '0.9rem', fontWeight: '700', color: '#4A5568', display: 'block', marginBottom: '5px'}}>IMB API URL</label>
                   <input 
                     type="text" 
-                    value={imbApiUrl || 'https://secure.imb.org.in/'} 
+                    value={imbApiUrl || 'https://secure.imbpayment.in/'} 
                     onChange={e => setImbApiUrl(e.target.value)} 
-                    placeholder="https://secure.imb.org.in/"
+                    placeholder="https://secure.imbpayment.in/"
                     style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '12px', width: '100%', fontSize: '0.9rem'}}
                   />
+                  <p style={{fontSize: '0.75rem', color: '#718096', marginTop: '5px'}}>
+                    Note: For production, use <b>https://secure.imbpayment.in/</b>. For staging, use <b>https://secure-stage.imb.org.in/</b>
+                  </p>
                 </div>
                 <div className="form-group" style={{marginBottom: '20px'}}>
                   <label style={{fontSize: '0.9rem', fontWeight: '700', color: '#4A5568', display: 'block', marginBottom: '5px'}}>Access Token (Secret)</label>
