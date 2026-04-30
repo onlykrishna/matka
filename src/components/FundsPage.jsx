@@ -734,7 +734,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           const today = new Date();
           const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
           
-          const checkUrl = 'https://merchant.upigateway.com/api/check_order_status';
+          const checkUrl = 'https://api.ekqr.in/api/v2/check_order_status';
           const isNative = window.Capacitor && window.Capacitor.isNative;
           let response;
           const payload = {
@@ -771,13 +771,13 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
             // Credit Wallet
             const userRef = doc(db, "users", userId);
             await updateDoc(userRef, {
-              wallet_balance: increment(result.data.amount)
+              wallet_balance: increment(Number(result.data.amount))
             });
 
             // Add to history
             await addDoc(collection(db, "deposits"), {
               userId,
-              amount: result.data.amount,
+              amount: Number(result.data.amount),
               method: 'UPI Gateway',
               status: 'approved',
               created_at: serverTimestamp(),
@@ -884,7 +884,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           return;
         }
 
-        const createUrl = settings.upi_gateway_url || 'https://merchant.upigateway.com/api/create_order';
+        const createUrl = settings.upi_gateway_url || 'https://api.ekqr.in/api/v2/create_order';
         const isNative = window.Capacitor && window.Capacitor.isNative;
         const client_txn_id = `txn_${Date.now()}`;
         const payload = {
@@ -895,7 +895,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           customer_name: userName || 'User',
           customer_email: userEmail || 'user@swamiji.com',
           customer_mobile: userPhone || '9999999999',
-          redirect_url: window.location.origin + '/funds?status=success&amount=' + amt
+          redirect_url: 'https://swamijimatka.com/funds?status=success&amount=' + amt
         };
 
         let response;
@@ -908,7 +908,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
         } else {
           // Web: Use the generic payment proxy
           const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
-          const response = await fetch(proxyUrl, {
+          response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -971,7 +971,7 @@ const DepositPopup = ({ settings, userId, userName, userEmail, userPhone, onClos
           user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
           amount: amt,
           order_id: order_id,
-          redirect_url: window.location.origin + '/funds?status=success&amount=' + amt,
+          redirect_url: 'https://swamijimatka.com/funds?status=success&amount=' + amt,
           remark1: userEmail || 'user@swamiji.com',
           remark2: userName || 'User'
         };
