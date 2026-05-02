@@ -286,10 +286,11 @@ const AdminPanel = () => {
           cutoffDate.setDate(cutoffDate.getDate() - 1);
         }
 
-        // Fetch ALL bets for this game by gameId only (no composite index needed)
+        // KEY FIX: Query by gameTitle (not gameId) so we catch ALL bets for this game,
+        // regardless of which game session document ID the user played under.
         const q = query(
           collection(db, 'bets'), 
-          where('gameId', '==', viewingGameBetsData.id)
+          where('gameTitle', '==', viewingGameBetsData.title)
         );
         const snap = await getDocs(q);
         
@@ -301,8 +302,9 @@ const AdminPanel = () => {
           const bid = doc.data();
 
           // Filter by session cutoff in JavaScript
-          const betTime = bid.createdAt?.toDate?.() || bid.createdAt?.toMillis ? new Date(bid.createdAt.toMillis()) : null;
-          if (betTime && betTime < cutoffDate) return; // Skip old session bets
+          const betTime = bid.createdAt?.toDate?.() ? bid.createdAt.toDate() : 
+                          bid.createdAt?.toMillis ? new Date(bid.createdAt.toMillis()) : null;
+          if (betTime && betTime < cutoffDate) return; // Skip bets from older sessions
 
           bid.items.forEach(item => {
             const amt = Number(item.amount) || 0;
