@@ -272,6 +272,7 @@ const AdminPanel = () => {
     const fetchAnalytics = async () => {
       setIsLoadingAnalytics(true);
       try {
+        // Calculate session cutoff time in JS (avoids Firestore composite index requirement)
         const now = new Date();
         const openStr = viewingGameBetsData.openTime || "00:00";
         const openTimePart = openStr.includes('T') ? openStr.split('T')[1].substring(0, 5) : openStr;
@@ -280,14 +281,15 @@ const AdminPanel = () => {
         let cutoffDate = new Date();
         cutoffDate.setHours(oH, oM, 0, 0);
         
+        // If current time is before today's open time, use yesterday's open time as cutoff
         if (now < cutoffDate) {
           cutoffDate.setDate(cutoffDate.getDate() - 1);
         }
 
+        // Fetch ALL bets for this game by gameId only (no composite index needed)
         const q = query(
           collection(db, 'bets'), 
-          where('gameId', '==', viewingGameBetsData.id),
-          where('createdAt', '>=', cutoffDate)
+          where('gameId', '==', viewingGameBetsData.id)
         );
         const snap = await getDocs(q);
         
@@ -297,6 +299,11 @@ const AdminPanel = () => {
 
         snap.forEach(doc => {
           const bid = doc.data();
+
+          // Filter by session cutoff in JavaScript
+          const betTime = bid.createdAt?.toDate?.() || bid.createdAt?.toMillis ? new Date(bid.createdAt.toMillis()) : null;
+          if (betTime && betTime < cutoffDate) return; // Skip old session bets
+
           bid.items.forEach(item => {
             const amt = Number(item.amount) || 0;
             if (['JODI', 'CROSSING', 'COPY PASTE'].includes(item.type)) {
@@ -314,6 +321,7 @@ const AdminPanel = () => {
         setBidsAnalyticsData({ jodi: sortObj(jodi), andar: sortObj(andar), bahar: sortObj(bahar) });
       } catch (err) {
         console.error('Error fetching analytics:', err);
+        setBidsAnalyticsData({ jodi: {}, andar: {}, bahar: {} });
       } finally {
         setIsLoadingAnalytics(false);
       }
@@ -882,14 +890,19 @@ const AdminPanel = () => {
         sessionCutoff.setDate(sessionCutoff.getDate() - 1);
       }
 
+      // Fetch by gameId + status only (no composite index needed), filter date in JS
       const betsRef = collection(db, 'bets');
       const q = query(
         betsRef, 
         where('gameId', '==', gameId), 
-        where('status', '==', 'pending'),
-        where('createdAt', '>=', sessionCutoff)
+        where('status', '==', 'pending')
       );
-      const betsSnap = await getDocs(q);
+      const allBetsSnap = await getDocs(q);
+      // Filter to current session only in JavaScript
+      const betsSnap = { forEach: (cb) => allBetsSnap.forEach(d => {
+        const t = d.data().createdAt?.toDate?.() || (d.data().createdAt?.toMillis ? new Date(d.data().createdAt.toMillis()) : null);
+        if (!t || t >= sessionCutoff) cb(d);
+      })};
 
       const winningUsers = {}; // uid -> { totalWon: 0, betDocs: [] }
       const losingBets = [];
@@ -1016,18 +1029,19 @@ const AdminPanel = () => {
       }
 
       const betsRef = collection(db, 'bets');
-      const q = query(
-        betsRef, 
-        where('gameId', '==', gameId),
-        where('createdAt', '>=', sessionCutoff)
-      );
-      const betsSnap = await getDocs(q);
+      // Fetch by gameId only (no composite index needed), filter date in JS
+      const q = query(betsRef, where('gameId', '==', gameId));
+      const allBetsSnap = await getDocs(q);
       
       const winners = []; 
       const allBetIds = [];
 
-      betsSnap.forEach(snap => {
+      allBetsSnap.forEach(snap => {
         const data = snap.data();
+        // Filter to current session only
+        const t = data.createdAt?.toDate?.() || (data.createdAt?.toMillis ? new Date(data.createdAt.toMillis()) : null);
+        if (t && t < sessionCutoff) return; // Skip old sessions
+
         allBetIds.push(snap.id);
         if (data.status === 'win' && data.wonAmount > 0) {
           winners.push({ uid: data.uid, amount: data.wonAmount });
