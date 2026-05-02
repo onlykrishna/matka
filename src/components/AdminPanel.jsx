@@ -39,7 +39,8 @@ import {
   increment,
   getDoc,
   runTransaction,
-  writeBatch
+  writeBatch,
+  deleteField
 } from "firebase/firestore";
 import './admin.css';
 
@@ -271,7 +272,23 @@ const AdminPanel = () => {
     const fetchAnalytics = async () => {
       setIsLoadingAnalytics(true);
       try {
-        const q = query(collection(db, 'bets'), where('gameId', '==', viewingGameBetsData.id));
+        const now = new Date();
+        const openStr = viewingGameBetsData.openTime || "00:00";
+        const openTimePart = openStr.includes('T') ? openStr.split('T')[1].substring(0, 5) : openStr;
+        const [oH, oM] = openTimePart.split(':').map(Number);
+        
+        let cutoffDate = new Date();
+        cutoffDate.setHours(oH, oM, 0, 0);
+        
+        if (now < cutoffDate) {
+          cutoffDate.setDate(cutoffDate.getDate() - 1);
+        }
+
+        const q = query(
+          collection(db, 'bets'), 
+          where('gameId', '==', viewingGameBetsData.id),
+          where('createdAt', '>=', cutoffDate)
+        );
         const snap = await getDocs(q);
         
         let jodi = {};
@@ -852,9 +869,26 @@ const AdminPanel = () => {
       const andarStr = num2.charAt(0);
       const baharStr = num2.charAt(1);
 
-      // 1. Fetch all pending bets for this game
+      // 1. Fetch all pending bets for this game session
+      const nowForCutoff = new Date();
+      const openStrForCutoff = game.openTime || "00:00";
+      const openTimePartForCutoff = openStrForCutoff.includes('T') ? openStrForCutoff.split('T')[1].substring(0, 5) : openStrForCutoff;
+      const [oH, oM] = openTimePartForCutoff.split(':').map(Number);
+      
+      let sessionCutoff = new Date();
+      sessionCutoff.setHours(oH, oM, 0, 0);
+      
+      if (nowForCutoff < sessionCutoff) {
+        sessionCutoff.setDate(sessionCutoff.getDate() - 1);
+      }
+
       const betsRef = collection(db, 'bets');
-      const q = query(betsRef, where('gameId', '==', gameId), where('status', '==', 'pending'));
+      const q = query(
+        betsRef, 
+        where('gameId', '==', gameId), 
+        where('status', '==', 'pending'),
+        where('createdAt', '>=', sessionCutoff)
+      );
       const betsSnap = await getDocs(q);
 
       const winningUsers = {}; // uid -> { totalWon: 0, betDocs: [] }
@@ -968,9 +1002,25 @@ const AdminPanel = () => {
     setIsRollingBack(gameId);
 
     try {
-      // 1. Find all won bets to deduct balance
+      // 1. Find all won bets for this game session to deduct balance
+      const nowForCutoff = new Date();
+      const openStrForCutoff = game.openTime || "00:00";
+      const openTimePartForCutoff = openStrForCutoff.includes('T') ? openStrForCutoff.split('T')[1].substring(0, 5) : openStrForCutoff;
+      const [oH, oM] = openTimePartForCutoff.split(':').map(Number);
+      
+      let sessionCutoff = new Date();
+      sessionCutoff.setHours(oH, oM, 0, 0);
+      
+      if (nowForCutoff < sessionCutoff) {
+        sessionCutoff.setDate(sessionCutoff.getDate() - 1);
+      }
+
       const betsRef = collection(db, 'bets');
-      const q = query(betsRef, where('gameId', '==', gameId));
+      const q = query(
+        betsRef, 
+        where('gameId', '==', gameId),
+        where('createdAt', '>=', sessionCutoff)
+      );
       const betsSnap = await getDocs(q);
       
       const winners = []; 
@@ -1002,8 +1052,8 @@ const AdminPanel = () => {
         batch.set(doc(db, 'bets', id), {
           status: 'pending',
           wonAmount: 0,
-          winningNumber: deleteField?.() || null, // Clean up winning markers
-          settledAt: deleteField?.() || null,
+          winningNumber: deleteField(), // Clean up winning markers
+          settledAt: deleteField(),
         }, { merge: true });
       });
       await batch.commit();
@@ -1011,7 +1061,7 @@ const AdminPanel = () => {
       // 4. Reset Game Document
       await updateDoc(doc(db, 'games', gameId), {
         status: 'open',
-        number2: deleteField?.() || null,
+        number2: deleteField(),
         totalWon: 0,
         totalPlaced: 0
       });
@@ -2944,7 +2994,10 @@ const AdminPanel = () => {
         <div className="modal-overlay" onClick={() => setViewingGameBetsData(null)} style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{background: 'white', padding: '25px', borderRadius: '15px', color: '#1B2559', width: '95%', maxWidth: '800px', cursor: 'default', boxShadow: '0 10px 40px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', maxHeight: '85vh'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #EEE', paddingBottom: '10px', flexShrink: 0}}>
-              <h2 style={{color: '#4F46E5', margin: 0, fontSize: '1.4rem'}}>{viewingGameBetsData.title} Analytics (Bets Placed)</h2>
+              <div>
+                <h2 style={{color: '#4F46E5', margin: 0, fontSize: '1.4rem'}}>{viewingGameBetsData.title} Analytics (Bets Placed)</h2>
+                <p style={{fontSize: '0.8rem', color: '#666', marginTop: '4px'}}>Showing data from current session starting at {viewingGameBetsData.openTime}</p>
+              </div>
               <button 
                 onClick={() => setViewingGameBetsData(null)}
                 style={{background: '#D32F2F', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'}}
