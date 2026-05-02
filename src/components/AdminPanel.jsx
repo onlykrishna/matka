@@ -1942,12 +1942,18 @@ const AdminPanel = () => {
           <div className="admin-view">
             <h1>View Game Data</h1>
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px'}}>
-              {games.filter(g => g.status === 'completed' || g.status === 'closed').map(game => (
+              {Object.values(games.reduce((acc, g) => {
+                const time = g.created_at?.toMillis?.() || 0;
+                if (!acc[g.title] || time > (acc[g.title].created_at?.toMillis?.() || 0)) {
+                  acc[g.title] = g;
+                }
+                return acc;
+              }, {})).sort((a, b) => a.title.localeCompare(b.title)).map(game => (
                 <div key={game.id} className="game-card" onClick={() => setViewingGameBetsData(game)} style={{cursor: 'pointer', transition: 'transform 0.2s'}} onMouseOver={e => e.currentTarget.style.transform='scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform='scale(1)'}>
                   <div className="game-card-top" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <h3 className="market-name" style={{margin: 0}}>{game.title}</h3>
                     <span style={{fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.2)', padding: '4px 8px', borderRadius: '12px'}}>
-                      {game.created_at?.toDate?.()?.toLocaleDateString() || 'Recent'}
+                      {game.status.toUpperCase()}
                     </span>
                   </div>
                   <div className="game-card-middle" style={{marginTop: '15px', justifyContent: 'center'}}>
@@ -1957,8 +1963,8 @@ const AdminPanel = () => {
                   </div>
                 </div>
               ))}
-              {games.filter(g => g.status === 'completed' || g.status === 'closed').length === 0 && (
-                <div style={{color: '#666', gridColumn: '1 / -1', textAlign: 'center', padding: '30px', fontWeight: 'bold', fontSize: '1.1rem'}}>No completed games available for analysis.</div>
+              {games.length === 0 && (
+                <div style={{color: '#666', gridColumn: '1 / -1', textAlign: 'center', padding: '30px', fontWeight: 'bold', fontSize: '1.1rem'}}>No games available for analysis.</div>
               )}
             </div>
           </div>
