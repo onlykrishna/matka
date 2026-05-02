@@ -18,7 +18,8 @@ import {
   Download,
   PlusSquare,
   MoreVertical,
-  Share
+  Share,
+  RefreshCw
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import AuthPopup from './AuthPopup';
@@ -761,14 +762,10 @@ function HomePage() {
           </button>
           <button 
             className="action-pill blue"
-            onClick={() => {
-              if (socialLinks.telegram) {
-                window.location.href = socialLinks.telegram;
-              }
-            }}
+            onClick={() => window.location.reload()}
           >
             <div className="pill-content">
-              <TelegramIcon /> LIVE SUPPORT
+              <RefreshCw size={20} /> REFRESH
             </div>
           </button>
         </div>
