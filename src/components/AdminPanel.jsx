@@ -320,10 +320,15 @@ const AdminPanel = () => {
         
         // Sort keys alphanumerically
         const sortObj = (obj) => Object.keys(obj).sort().reduce((res, key) => (res[key] = obj[key], res), {});
-        setBidsAnalyticsData({ jodi: sortObj(jodi), andar: sortObj(andar), bahar: sortObj(bahar) });
+        setBidsAnalyticsData({ 
+          jodi: sortObj(jodi), 
+          andar: sortObj(andar), 
+          bahar: sortObj(bahar),
+          _debug: `Found ${snap.size} bets. Parsed cutoff: ${cutoffDate.toLocaleString()}. Title queried: '${viewingGameBetsData.title}'`
+        });
       } catch (err) {
         console.error('Error fetching analytics:', err);
-        setBidsAnalyticsData({ jodi: {}, andar: {}, bahar: {} });
+        setBidsAnalyticsData({ jodi: {}, andar: {}, bahar: {}, _debug: `Error: ${err.message}` });
       } finally {
         setIsLoadingAnalytics(false);
       }
@@ -892,17 +897,19 @@ const AdminPanel = () => {
         sessionCutoff.setDate(sessionCutoff.getDate() - 1);
       }
 
-      // Fetch by gameId + status only (no composite index needed), filter date in JS
+      // Fetch by gameTitle + status only (no composite index needed), filter date in JS
       const betsRef = collection(db, 'bets');
       const q = query(
         betsRef, 
-        where('gameId', '==', gameId), 
+        where('gameTitle', '==', game.title), 
         where('status', '==', 'pending')
       );
       const allBetsSnap = await getDocs(q);
+      
       // Filter to current session only in JavaScript
       const betsSnap = { forEach: (cb) => allBetsSnap.forEach(d => {
-        const t = d.data().createdAt?.toDate?.() || (d.data().createdAt?.toMillis ? new Date(d.data().createdAt.toMillis()) : null);
+        const t = d.data().createdAt?.toDate?.() ? d.data().createdAt.toDate() :
+                  (d.data().createdAt?.toMillis ? new Date(d.data().createdAt.toMillis()) : null);
         if (!t || t >= sessionCutoff) cb(d);
       })};
 
@@ -1031,8 +1038,8 @@ const AdminPanel = () => {
       }
 
       const betsRef = collection(db, 'bets');
-      // Fetch by gameId only (no composite index needed), filter date in JS
-      const q = query(betsRef, where('gameId', '==', gameId));
+      // Fetch by gameTitle only (no composite index needed), filter date in JS
+      const q = query(betsRef, where('gameTitle', '==', game.title));
       const allBetsSnap = await getDocs(q);
       
       const winners = []; 
@@ -1959,6 +1966,7 @@ const AdminPanel = () => {
             <h1>View Game Data</h1>
             <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px'}}>
               {Object.values(games.reduce((acc, g) => {
+                if (g.title === 'SADAR BAZAR') return acc;
                 const time = g.created_at?.toMillis?.() || 0;
                 if (!acc[g.title] || time > (acc[g.title].created_at?.toMillis?.() || 0)) {
                   acc[g.title] = g;
@@ -3033,6 +3041,12 @@ const AdminPanel = () => {
             ) : (
                <div style={{display: 'flex', flexDirection: 'column', gap: '30px', overflowY: 'auto', paddingRight: '10px', flexGrow: 1}}>
                  
+                 {bidsAnalyticsData._debug && (
+                    <p style={{background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '5px', fontSize: '0.85rem', marginBottom: '10px'}}>
+                      Debug Info: {bidsAnalyticsData._debug}
+                    </p>
+                 )}
+
                  {/* JODI / 2-Digit Section */}
                  <div>
                    <h3 style={{margin: '0 0 15px 0', color: '#000', borderBottom: '3px solid #D32F2F', paddingBottom: '8px', display: 'inline-block'}}>Numbers (00-99) Amounts</h3>
