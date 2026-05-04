@@ -2780,6 +2780,10 @@ const AdminPanel = () => {
                                  snap.forEach(d => {
                                    deletePromises.push(deleteDoc(d.ref));
                                  });
+                                 
+                                 // 3. Delete from market_names so it disappears from dropdowns
+                                 deletePromises.push(deleteDoc(doc(db, "market_names", m.title.toUpperCase())));
+                                 
                                  await Promise.all(deletePromises);
                                  
                                } catch (err) {
