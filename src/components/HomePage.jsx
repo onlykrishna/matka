@@ -236,6 +236,7 @@ function HomePage() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [showInstallInfo, setShowInstallInfo] = useState(false);
+  const [activeMarketTitles, setActiveMarketTitles] = useState(null);
 
   useEffect(() => {
     // Check if already installed
@@ -426,6 +427,15 @@ function HomePage() {
     };
   }, []);
 
+  // Listen to active market titles to filter deleted games
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "game_markets"), (snap) => {
+      const titles = new Set(snap.docs.map(doc => (doc.data().title || '').toUpperCase().trim()));
+      setActiveMarketTitles(titles);
+    }, (err) => console.error("Error fetching markets", err));
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     // Listen to real-time updates from games collection
     const q = query(collection(db, "games"), orderBy("created_at", "desc"));
@@ -467,6 +477,10 @@ function HomePage() {
       allGames.forEach(g => {
         const title = (g.title || '').toUpperCase().trim();
         if (!title || title === 'SADAR BAZAR') return;
+        
+        // Only show games that exist in active game_markets (instantly hide deleted games)
+        if (activeMarketTitles && !activeMarketTitles.has(title)) return;
+        
         if (!marketGroups[title]) marketGroups[title] = {};
         
         // Extract date from created_at or ID
@@ -553,7 +567,7 @@ function HomePage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [activeMarketTitles]);
 
   const [hasUnread, setHasUnread] = useState(false);
 
