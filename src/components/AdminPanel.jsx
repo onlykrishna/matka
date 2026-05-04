@@ -2768,8 +2768,24 @@ const AdminPanel = () => {
                       <td>
                          <button 
                            onClick={async () => {
-                             if(window.confirm(`Delete ${m.title} from auto-renewal?`)) {
-                               await deleteDoc(doc(db, "game_markets", m.id));
+                             if(window.confirm(`Delete ${m.title} and instantly remove it from the home screen?`)) {
+                               try {
+                                 // 1. Delete from game_markets
+                                 await deleteDoc(doc(db, "game_markets", m.id));
+                                 
+                                 // 2. Delete all instances from games collection so it instantly vanishes from HomePage
+                                 const q = query(collection(db, "games"), where("title", "==", m.title));
+                                 const snap = await getDocs(q);
+                                 const deletePromises = [];
+                                 snap.forEach(d => {
+                                   deletePromises.push(deleteDoc(d.ref));
+                                 });
+                                 await Promise.all(deletePromises);
+                                 
+                               } catch (err) {
+                                 console.error("Error deleting game instances:", err);
+                                 alert("Failed to completely delete the game.");
+                               }
                              }
                            }}
                            style={{color: '#D32F2F', background: 'none', border: 'none', cursor: 'pointer'}}
