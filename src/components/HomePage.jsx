@@ -164,44 +164,37 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
         <h3 className="market-name" style={{ margin: 0, fontSize: '1.25rem' }}>{title}</h3>
       </div>
       
-      <div className="game-card-middle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+      <div className="game-card-middle">
         {/* Left Section: Roulette Wheel */}
-        <div style={{ flex: '1', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: '65px', height: '65px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="wheel-section">
+          <div className="wheel-container">
             <img 
               src={roulette} 
               alt="Wheel" 
-              className="spinning" 
-              style={{ 
-                width: '62px', 
-                height: '62px', 
-                objectFit: 'contain',
-                borderRadius: '50%',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
-              }} 
+              className="spinning roulette-img" 
             />
           </div>
         </div>
 
         {/* Middle Section: Results (Kal, Live, Aaj) */}
-        <div style={{ flex: '1.4', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '8px' }}>
+        <div className="results-section">
           <div className="result-column">
-            <span className="result-label" style={{ color: '#0D47A1', fontSize: '0.75rem' }}>कल</span>
-            <div className="result-box red" style={{ width: '48px', height: '42px', fontSize: '1.2rem' }}>{number1}</div>
+            <span className="result-label" style={{ color: '#0D47A1' }}>कल</span>
+            <div className="result-box red">{number1}</div>
           </div>
           
-          <div className="live-badge-mini blinking-blue" style={{ marginBottom: '8px', fontSize: '0.8rem', padding: '5px 12px', minWidth: '50px' }}>
+          <div className="live-badge-mini blinking-blue">
             LIVE
           </div>
 
           <div className="result-column">
-            <span className="result-label" style={{ color: '#1B5E20', fontSize: '0.75rem' }}>आज</span>
-            <div className="result-box green" style={{ width: '48px', height: '42px', fontSize: '1.2rem' }}>{number2}</div>
+            <span className="result-label" style={{ color: '#1B5E20' }}>आज</span>
+            <div className="result-box green">{number2}</div>
           </div>
         </div>
 
         {/* Right Section: Action Button */}
-        <div style={{ flex: '1', display: 'flex', justifyContent: 'center' }}>
+        <div className="action-section">
           <button 
             className={`play-now-btn ${!btnState.disabled ? 'pop-animation' : ''}`} 
             onClick={handlePlayClick}
@@ -209,18 +202,7 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
               backgroundColor: btnState.color, 
               color: btnState.color === '#FFCE3B' ? '#000' : '#FFF',
               cursor: btnState.disabled ? 'not-allowed' : 'pointer',
-              opacity: btnState.disabled ? 0.9 : 1,
-              padding: '12px 20px',
-              minWidth: '95px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '25px',
-              fontSize: '1rem',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-              border: '2px solid white',
-              fontWeight: '900',
-              textAlign: 'center'
+              opacity: btnState.disabled ? 0.9 : 1
             }}
           >
             {btnState.text === 'PLAY NOW' ? 'PLAY' : btnState.text}
@@ -228,12 +210,12 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
         </div>
       </div>
 
-      <div className="game-card-bottom" style={{ background: 'rgba(255,255,255,0.15)', margin: '12px -1.2rem -0.5rem', padding: '8px 1.2rem', display: 'flex', justifyContent: 'center', gap: '15px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-        <div className="time-item" style={{ fontSize: '0.75rem', color: '#FFF' }}>
-          <span>OPEN TIME : {formatTime12Hour(openTime)}</span>
+      <div className="game-card-bottom">
+        <div className="time-item">
+          <span>OPEN: {formatTime12Hour(openTime)}</span>
         </div>
-        <div className="time-item" style={{ fontSize: '0.75rem', color: '#FFF' }}>
-          <span>CLOSE TIME : {formatTime12Hour(closeTime)}</span>
+        <div className="time-item">
+          <span>CLOSE: {formatTime12Hour(closeTime)}</span>
         </div>
       </div>
     </div>

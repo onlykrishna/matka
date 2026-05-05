@@ -301,6 +301,12 @@ h1 {
   letter-spacing: 0px;
 }
 
+@media (max-width: 360px) {
+  .brand-name-hindi { font-size: 1rem; }
+  .wallet-badge { padding: 4px 10px; font-size: 0.9rem; }
+  .header-logo-img { width: 30px; height: 30px; }
+}
+
 .header-left {
   display: flex;
   align-items: center;
@@ -464,16 +470,25 @@ h1 {
 .action-pill.red { background: #D32F2F; color: white; }
 .action-pill.blue { background: #1976D2; color: white; }
 
-.action-pill svg {
-  flex-shrink: 0;
+@media (max-width: 380px) {
+  .quick-actions { padding: 0 0.8rem; }
+  .action-row { gap: 0.8rem; }
+  .pill-content { font-size: 0.8rem; gap: 6px; }
+  .action-pill { height: 42px; }
+}
+
+@media (max-width: 340px) {
+  .quick-actions { padding: 0 0.5rem; }
+  .action-row { gap: 0.5rem; }
+  .pill-content { font-size: 0.75rem; }
 }
 
 /* Live Result Block */
 .live-result-block {
   background-color: #FFFFFF;
   border-radius: 15px;
-  margin: 1.2rem;
-  padding: 15px;
+  margin: 1rem;
+  padding: 10px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
@@ -481,7 +496,15 @@ h1 {
   border: 1px solid #E0E5F2;
   position: relative;
   overflow: hidden;
-  min-height: 120px;
+  min-height: 100px;
+}
+
+@media (max-width: 380px) {
+  .live-result-block { margin: 0.8rem; padding: 8px; min-height: 90px; }
+  .live-logo { width: 60px; height: 60px; }
+  .live-title { font-size: 1.2rem; }
+  .live-number { font-size: 1.5rem; }
+  .live-game-name { font-size: 0.9rem; }
 }
 
 .flower-shower-container {
@@ -698,81 +721,145 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 0.4rem;
+  margin-top: 8px;
 }
 
-.card-actions {
+.wheel-section {
+  flex: 1;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  justify-content: center;
 }
 
-.number-circles {
-  display: flex;
-  gap: 8px;
-}
-
-.circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
+.wheel-container {
+  width: 65px;
+  height: 65px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
-  color: white;
 }
 
-.circle.black { background-color: #000; }
-.circle.green { background-color: #1B5E20; }
+.roulette-img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
 
-.view-chart-btn {
-  background-color: #42A5F5; /* Sky blue as per screenshot */
-  color: #000;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-weight: 800;
-  font-size: 0.85rem;
+.results-section {
+  flex: 1.4;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.result-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.result-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.result-box {
+  width: 48px;
+  height: 42px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.result-box.red { background-color: #B71C1C; }
+.result-box.green { background-color: #1B5E20; }
+
+.live-badge-mini {
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  padding: 5px 12px;
+  min-width: 50px;
+  border-radius: 4px;
+  color: white;
+  font-weight: 900;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .play-now-btn {
-  background-color: #1B5E20; /* Dark green as per screenshot */
-  color: white;
-  border: none;
-  padding: 6px 18px;
-  border-radius: 20px;
-  font-weight: 800;
-  font-size: 0.95rem;
+  padding: 12px 20px;
+  min-width: 95px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  border-radius: 25px;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  border: 2px solid white;
+  font-weight: 900;
+  text-align: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.play-now-btn.closed {
-  background-color: #C62828;
 }
 
 .game-card-bottom {
+  background: rgba(255, 255, 255, 0.15);
+  margin: 12px -1.2rem -0.5rem;
+  padding: 8px 1.2rem;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 5px;
+  justify-content: center;
+  gap: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .time-item {
   color: white;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.2px;
+}
+
+@media (max-width: 380px) {
+  .game-card { padding: 0.5rem 0.8rem; border-radius: 20px; }
+  .market-name { font-size: 1rem !important; }
+  .playing-badge { top: -10px; right: 10px; padding: 3px 10px; font-size: 0.65rem; }
+  
+  .wheel-container { width: 50px; height: 50px; }
+  .roulette-img { width: 48px; height: 48px; }
+  
+  .results-section { gap: 4px; }
+  .result-box { width: 38px; height: 34px; font-size: 1rem; }
+  .live-badge-mini { font-size: 0.6rem; padding: 3px 8px; min-width: 40px; margin-bottom: 6px; }
+  .result-label { font-size: 0.6rem; }
+  
+  .play-now-btn { min-width: 75px; padding: 8px 12px; font-size: 0.8rem; }
+  
+  .game-card-bottom { gap: 8px; margin: 10px -0.8rem -0.5rem; padding: 6px 0.8rem; }
+  .time-item { font-size: 0.65rem; }
+}
+
+@media (max-width: 330px) {
+  .game-card { padding: 0.4rem 0.6rem; }
+  .wheel-container { width: 42px; height: 42px; }
+  .roulette-img { width: 40px; height: 40px; }
+  .result-box { width: 34px; height: 30px; font-size: 0.9rem; }
+  .play-now-btn { min-width: 65px; padding: 6px 8px; font-size: 0.75rem; }
 }
 
 /* Game Play Page Styles */
