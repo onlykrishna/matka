@@ -158,7 +158,18 @@ const WithdrawalPage = () => {
               <input 
                 type="number" 
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === '' || parseFloat(val) >= 0) {
+                    setAmount(val);
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === '-' || e.key === 'e' || e.key === '+') {
+                    e.preventDefault();
+                  }
+                }}
+                min="0"
                 placeholder="₹ 0.00"
                 style={{width: '100%', padding: '15px', fontSize: '1.5rem', fontWeight: '900', border: '2px solid #eee', borderRadius: '12px', outline: 'none'}}
                 required
