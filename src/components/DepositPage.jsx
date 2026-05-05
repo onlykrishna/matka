@@ -88,20 +88,19 @@ const DepositPage = () => {
         try {
           const today = new Date();
           const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-          const checkUrl = 'https://api.ekqr.in/api/v2/check_order_status';
+          const checkUrl = 'https://merchant.upigateway.com/api/check_order_status';
           const payload = {
             key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
             client_txn_id: gatewayData.client_txn_id,
             txn_date: dateStr
           };
-          const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
+          const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
           const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               url: checkUrl, 
-              payload: payload,
-              headers: { 'Authorization': `Bearer ${payload.key}` }
+              payload: payload
             })
           });
           const result = await response.json();
@@ -177,7 +176,7 @@ const DepositPage = () => {
 
     if (method === 'UPI_GATEWAY') {
       try {
-        const createUrl = settings.upi_gateway_url || 'https://api.ekqr.in/api/v2/create_order';
+        const createUrl = settings.upi_gateway_url || 'https://merchant.upigateway.com/api/create_order';
         const client_txn_id = `txn_${Date.now()}`;
         const payload = {
           key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
@@ -185,9 +184,12 @@ const DepositPage = () => {
           amount: amt,
           p_info: 'Wallet Deposit',
           customer_name: userData.name || 'User',
-          customer_email: userData.email || 'user@swamiji.com',
-          customer_mobile: userData.phone || '9999999999',
-          redirect_url: `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`
+          customer_email: userData.email || 'user@swamijimatka.com',
+          customer_mobile: userData.phone || '0000000000',
+          redirect_url: `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`,
+          udf1: user.uid,
+          udf2: userData.phone || '',
+          udf3: 'Web Redirect Flow'
         };
 
         const isNative = window.Capacitor && window.Capacitor.isNative;
@@ -200,20 +202,25 @@ const DepositPage = () => {
             body: JSON.stringify(payload)
           });
         } else {
-          const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
+          // Use the actual Firebase function URL for this project
+          const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
           response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: createUrl, payload: payload, headers: { 'Authorization': `Bearer ${payload.key}` } })
+            body: JSON.stringify({ 
+              url: createUrl, 
+              payload: payload 
+            })
           });
         }
 
         const result = await response.json();
-        if (result && result.status && result.data.payment_url) {
-          setGatewayData({ payment_url: result.data.payment_url, order_id: result.data.order_id, client_txn_id: client_txn_id });
-          setPaymentStatus('PENDING');
-          setPollingActive(true);
-        } else { throw new Error(result.msg || "Failed to create order"); }
+        if (result && result.status && result.data && result.data.payment_url) {
+          // Direct redirect to payment page (requested by user to skip QR step)
+          window.location.href = result.data.payment_url;
+        } else { 
+          throw new Error(result.msg || result.message || "Failed to create order. Please check Merchant ID/Key."); 
+        }
       } catch (err) { alert("Gateway Error: " + err.message); }
       finally { setLoading(false); }
       return;
@@ -221,7 +228,13 @@ const DepositPage = () => {
 
     if (method === 'IMB') {
       try {
-        let createUrl = settings.imb_api_url || 'https://secure.imbpayment.in/api/create-order';
+        let baseUrl = settings.imb_api_url || 'https://secure.imbpayment.in/';
+        // Ensure the URL correctly points to the create-order endpoint
+        let createUrl = baseUrl;
+        if (!createUrl.includes('/api/create-order')) {
+          createUrl = createUrl.endsWith('/') ? createUrl + 'api/create-order' : createUrl + '/api/create-order';
+        }
+
         const order_id = `IMB_${Date.now()}`;
         const payload = {
           customer_mobile: userData.phone || '9999999999',
@@ -254,9 +267,13 @@ const DepositPage = () => {
         }
 
         const result = await response.json();
-        if (result && result.status && result.result && result.result.payment_url) {
+        // IMB can return status as "SUCCESS" or true/1
+        if (result && (result.status === 'SUCCESS' || result.status === true || result.status === 1) && result.result?.payment_url) {
           window.location.href = result.result.payment_url;
-        } else { throw new Error(result.message || "Failed to create IMB order"); }
+        } else { 
+          const errorMsg = result.message || result.msg || result.error || "Failed to create IMB order";
+          throw new Error(errorMsg); 
+        }
       } catch (err) { alert("IMB Error: " + err.message); }
       finally { setLoading(false); }
       return;

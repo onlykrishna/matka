@@ -124,7 +124,6 @@ exports.onNotificationCreated = onDocumentCreated("notifications/{notifId}", asy
  */
 exports.imbWebhook = onRequest({ region: "us-central1", timeoutSeconds: 30 }, async (req, res) => {
   return cors(req, res, async () => {
-    // IMB sends form-encoded POST
     console.log("[IMB Webhook] Received payload:", JSON.stringify(req.body));
 
     try {
@@ -136,50 +135,107 @@ exports.imbWebhook = onRequest({ region: "us-central1", timeoutSeconds: 30 }, as
       const amount = Number(result.amount);
       const userId = result.remark2; // We store userId in remark2
 
-      if (status === 'SUCCESS' && txnStatus === 'COMPLETED' && userId) {
+      if (status === 'SUCCESS' && txnStatus === 'COMPLETED' && userId && orderId) {
         const db = admin.firestore();
+        const txnIdKey = `IMB_WH_${orderId}`;
+        const depositRef = db.collection('deposits').doc(txnIdKey);
         
-        // Idempotency check
-        const depositRef = db.collection('deposits').where('gatewayOrderId', '==', orderId);
-        const snapshot = await depositRef.get();
-        
-        if (snapshot.empty) {
-          console.log(`[IMB Webhook] Processing successful deposit for user ${userId}, amount ${amount}`);
-          
-          const batch = db.batch();
-          
-          // Update user balance
+        await db.runTransaction(async (t) => {
+          const depDoc = await t.get(depositRef);
+          if (depDoc.exists()) {
+            console.log(`[IMB Webhook] Already processed: ${orderId}`);
+            return;
+          }
+
           const userRef = db.collection('users').doc(userId);
-          batch.update(userRef, {
-            wallet_balance: admin.firestore.FieldValue.increment(amount)
+          const userDoc = await t.get(userRef);
+          if (!userDoc.exists()) {
+            console.log(`[IMB Webhook] User ${userId} not found`);
+            return;
+          }
+
+          const currentBal = Number(userDoc.data().wallet_balance || 0);
+          t.update(userRef, {
+            wallet_balance: currentBal + amount
           });
-          
-          // Add deposit record
-          const newDepositRef = db.collection('deposits').doc();
-          batch.set(newDepositRef, {
+
+          t.set(depositRef, {
             userId: userId,
             amount: amount,
             method: 'IMB Gateway',
             status: 'approved',
             created_at: admin.firestore.FieldValue.serverTimestamp(),
-            txnId: `IMB_WH_${orderId}`,
+            txnId: txnIdKey,
             gatewayOrderId: orderId,
             note: 'Verified Webhook Deposit'
           });
-          
-          await batch.commit();
-          console.log(`[IMB Webhook] Deposit credited successfully.`);
-        } else {
-          console.log(`[IMB Webhook] Transaction ${orderId} already processed.`);
-        }
+        });
+        
+        console.log(`[IMB Webhook] Deposit credited successfully for ${orderId}`);
       } else {
-        console.log(`[IMB Webhook] Transaction failed or missing data. Status: ${status}, TxnStatus: ${txnStatus}`);
+        console.log(`[IMB Webhook] Transaction failed or incomplete: ${status}`);
       }
 
-      // IMB expects a 200 "Success" response
       return res.status(200).send("Success");
     } catch (error) {
-      console.error("[IMB Webhook] Error processing:", error);
+      console.error("[IMB Webhook] Error:", error);
+      return res.status(500).send("Internal Error");
+    }
+  });
+});
+
+/**
+ * Webhook for UPI Gateway (merchant.upigateway.com)
+ */
+exports.upiWebhook = onRequest({ region: "us-central1", timeoutSeconds: 30 }, async (req, res) => {
+  return cors(req, res, async () => {
+    console.log("[UPI Webhook] Received payload:", JSON.stringify(req.body));
+
+    try {
+      const data = req.body;
+      const { client_txn_id, status, amount, udf1 } = data;
+      const userId = udf1;
+
+      if (status === 'success' && userId && client_txn_id) {
+        const db = admin.firestore();
+        const depositRef = db.collection('deposits').doc(client_txn_id);
+        
+        await db.runTransaction(async (t) => {
+          const depDoc = await t.get(depositRef);
+          if (depDoc.exists()) {
+            console.log(`[UPI Webhook] Already processed: ${client_txn_id}`);
+            return;
+          }
+
+          const userRef = db.collection('users').doc(userId);
+          const userDoc = await t.get(userRef);
+          if (!userDoc.exists()) {
+             console.log(`[UPI Webhook] User ${userId} not found`);
+             return;
+          }
+
+          const currentBal = Number(userDoc.data().wallet_balance || 0);
+          t.update(userRef, {
+            wallet_balance: currentBal + Number(amount)
+          });
+
+          t.set(depositRef, {
+            userId: userId,
+            amount: Number(amount),
+            method: 'UPI Gateway',
+            status: 'approved',
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            txnId: client_txn_id,
+            note: 'Verified Webhook Deposit'
+          });
+        });
+
+        console.log(`[UPI Webhook] Successfully credited ${amount} to ${userId}`);
+      }
+
+      return res.status(200).send("Success");
+    } catch (error) {
+      console.error("[UPI Webhook] Error:", error);
       return res.status(500).send("Internal Error");
     }
   });

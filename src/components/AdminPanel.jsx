@@ -627,18 +627,30 @@ const AdminPanel = () => {
     setIsProcessingApproval(request.id);
     
     try {
-      // 1. Update User Balance (Atomic Increment)
-      const userRef = doc(db, "users", request.userId);
-      await updateDoc(userRef, {
-        wallet_balance: increment(request.amount)
-      });
-      
-      // 2. Mark Deposit as Approved
-      const depositRef = doc(db, "deposits", request.id);
-      await updateDoc(depositRef, {
-        status: 'approved',
-        processed_at: serverTimestamp(),
-        processed_by: isAdminLoggedIn?.username || 'admin'
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, "users", request.userId);
+        const depositRef = doc(db, "deposits", request.id);
+        
+        const userSnap = await transaction.get(userRef);
+        const depSnap = await transaction.get(depositRef);
+        
+        if (!userSnap.exists()) throw new Error("User does not exist!");
+        if (!depSnap.exists()) throw new Error("Deposit record missing!");
+        if (depSnap.data().status !== 'pending') throw new Error("Already processed!");
+
+        // 1. Update User Balance
+        const currentBal = Number(userSnap.data().wallet_balance || 0);
+        const addAmt = Number(request.amount || 0);
+        transaction.update(userRef, {
+          wallet_balance: currentBal + addAmt
+        });
+        
+        // 2. Mark Deposit as Approved
+        transaction.update(depositRef, {
+          status: 'approved',
+          processed_at: serverTimestamp(),
+          processed_by: isAdminLoggedIn?.username || 'admin'
+        });
       });
       
       console.log("[DEP_APPROVE] Success for ID:", request.id);

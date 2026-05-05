@@ -136,54 +136,63 @@ const FundsPage = () => {
         // Securely verify transaction with gateway
         const verifyTxn = async () => {
           try {
-            // Check if already processed
-            const q = query(collection(db, "deposits"), where("txnId", "==", clientTxnId));
-            const snap = await getDocs(q);
-            if (!snap.empty) return; // Already credited
-
-            const today = new Date();
-            const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-            const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
-            const payload = {
-              key: 'c2ce65c8-e370-466e-9978-643698cf44f3', // Fallback key
-              client_txn_id: clientTxnId,
-              txn_date: dateStr
-            };
-
-            const response = await fetch(proxyUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                url: 'https://api.ekqr.in/api/v2/check_order_status', 
-                payload: payload,
-                headers: { 'Authorization': `Bearer ${payload.key}` }
-              })
-            });
-
-            const result = await response.json();
-            const apiStatus = result.data?.status?.toUpperCase() || '';
-
-            if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
-              const amt = Number(result.data.amount);
-              setImbSuccessAmount(amt);
-              setShowImbSuccess(true);
+            await runTransaction(db, async (transaction) => {
+              const depositRef = doc(db, "deposits", clientTxnId);
+              const depSnap = await transaction.get(depositRef);
               
-              const userRef = doc(db, "users", userUid);
-              await updateDoc(userRef, { wallet_balance: increment(amt) });
+              if (depSnap.exists()) return; // Already credited (Idempotency)
 
-              await addDoc(collection(db, "deposits"), {
-                userId: userUid,
-                amount: amt,
-                method: 'UPI Gateway',
-                status: 'approved',
-                created_at: serverTimestamp(),
-                txnId: clientTxnId,
-                gatewayOrderId: result.data.order_id || '',
-                note: 'Verified Redirect Deposit'
+              const today = new Date();
+              const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+              const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
+              const payload = {
+                key: depositSettings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
+                client_txn_id: clientTxnId,
+                txn_date: dateStr
+              };
+
+              const response = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  url: 'https://merchant.upigateway.com/api/check_order_status', 
+                  payload: payload
+                })
               });
 
-              setTimeout(() => setShowImbSuccess(false), 3000);
-            }
+              const result = await response.json();
+              const apiStatus = result.data?.status?.toUpperCase() || '';
+
+              if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
+                const amt = Number(result.data.amount);
+                const userRef = doc(db, "users", userUid);
+                const userSnap = await transaction.get(userRef);
+                
+                if (!userSnap.exists()) return;
+
+                // 1. Update Balance
+                transaction.update(userRef, { 
+                  wallet_balance: (userSnap.data().wallet_balance || 0) + amt 
+                });
+
+                // 2. Create Deposit Record with fixed ID (prevents double credit)
+                transaction.set(depositRef, {
+                  userId: userUid,
+                  amount: amt,
+                  method: 'UPI Gateway',
+                  status: 'approved',
+                  created_at: serverTimestamp(),
+                  txnId: clientTxnId,
+                  gatewayOrderId: result.data.order_id || '',
+                  note: 'Verified Redirect Deposit'
+                });
+
+                // Success UI handled outside transaction
+                setImbSuccessAmount(amt);
+                setShowImbSuccess(true);
+                setTimeout(() => setShowImbSuccess(false), 3000);
+              }
+            });
           } catch (err) {
             console.error("Verification failed:", err);
           }
@@ -193,50 +202,59 @@ const FundsPage = () => {
         // Securely verify IMB transaction
         const verifyIMB = async () => {
           try {
-            // Check if already processed
-            const txnIdKey = `IMB_RD_${orderIdParam}`;
-            const q = query(collection(db, "deposits"), where("txnId", "==", txnIdKey));
-            const snap = await getDocs(q);
-            if (!snap.empty) return; // Already credited
-
-            const proxyUrl = 'https://paymentproxy-vmgxnvieya-uc.a.run.app';
-            const checkUrl = settings.imb_api_url?.replace('create-order', 'check-order-status') || 'https://secure-stage.imb.org.in/api/check-order-status';
-            
-            const response = await fetch(proxyUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                url: checkUrl, 
-                payload: {
-                  user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
-                  order_id: orderIdParam
-                },
-                useFormEncoding: true
-              })
-            });
-
-            const result = await response.json();
-            if (result && (result.status === 'COMPLETED' || result.status === 'SUCCESS')) {
-              const amt = Number(result.result?.amount || urlAmount);
-              setImbSuccessAmount(amt);
-              setShowImbSuccess(true);
+            await runTransaction(db, async (transaction) => {
+              const txnIdKey = `IMB_RD_${orderIdParam}`;
+              const depositRef = doc(db, "deposits", txnIdKey);
+              const depSnap = await transaction.get(depositRef);
               
-              const userRef = doc(db, "users", userUid);
-              await updateDoc(userRef, { wallet_balance: increment(amt) });
+              if (depSnap.exists()) return; // Already credited
 
-              await addDoc(collection(db, "deposits"), {
-                userId: userUid,
-                amount: amt,
-                method: 'IMB Gateway',
-                status: 'approved',
-                created_at: serverTimestamp(),
-                txnId: txnIdKey,
-                gatewayOrderId: orderIdParam,
-                note: 'Verified IMB Redirect'
+              const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
+              const checkUrl = depositSettings.imb_api_url?.replace('create-order', 'check-order-status') || 'https://secure-stage.imb.org.in/api/check-order-status';
+              
+              const response = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  url: checkUrl, 
+                  payload: {
+                    user_token: depositSettings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
+                    order_id: orderIdParam
+                  },
+                  useFormEncoding: true
+                })
               });
 
-              setTimeout(() => setShowImbSuccess(false), 3000);
-            }
+              const result = await response.json();
+              if (result && (result.status === 'COMPLETED' || result.status === 'SUCCESS')) {
+                const amt = Number(result.result?.amount || urlAmount);
+                const userRef = doc(db, "users", userUid);
+                const userSnap = await transaction.get(userRef);
+                
+                if (!userSnap.exists()) return;
+
+                // 1. Update Balance
+                transaction.update(userRef, { 
+                  wallet_balance: (userSnap.data().wallet_balance || 0) + amt 
+                });
+
+                // 2. Create Record
+                transaction.set(depositRef, {
+                  userId: userUid,
+                  amount: amt,
+                  method: 'IMB Gateway',
+                  status: 'approved',
+                  created_at: serverTimestamp(),
+                  txnId: txnIdKey,
+                  gatewayOrderId: orderIdParam,
+                  note: 'Verified IMB Redirect'
+                });
+
+                setImbSuccessAmount(amt);
+                setShowImbSuccess(true);
+                setTimeout(() => setShowImbSuccess(false), 3000);
+              }
+            });
           } catch (err) {
             console.error("IMB Verification failed:", err);
           }
