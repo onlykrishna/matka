@@ -32,6 +32,8 @@ import banner1 from '../assets/banner1.png';
 import banner2 from '../assets/banner2.png';
 import banner3 from '../assets/banner3.png';
 import moneyBag from '../assets/money_bag.png';
+import roulette from '../assets/roulette.png';
+
 
 const formatTime12Hour = (timeStr) => {
   if (!timeStr) return '';
@@ -127,7 +129,20 @@ function SkeletonCard() {
 
 function GameCard({ id, title, number1, number2, openTime, closeTime, status, created_at, isLoggedIn, onAuthRequired, onViewClick }) {
   const navigate = useNavigate();
+  const [playingCount, setPlayingCount] = useState(Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200);
   const btnState = getGameButtonState(openTime, closeTime, created_at);
+  const isLive = btnState.text === 'PLAY NOW';
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlayingCount(prev => {
+        const change = Math.floor(Math.random() * 21) - 10; // -10 to +10
+        const next = prev + change;
+        return next < 1200 ? 1200 : (next > 1500 ? 1500 : next);
+      });
+    }, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handlePlayClick = () => {
     if (status !== 'closed' && !btnState.disabled) {
@@ -141,39 +156,83 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
 
   return (
     <div className="game-card">
-      <div className="game-card-top">
-        <h3 className="market-name">{title}</h3>
+      <div className="playing-badge">
+        {playingCount}+ Playing
+      </div>
+      <div className="game-card-top" style={{ marginBottom: '5px' }}>
+
+        <h3 className="market-name" style={{ margin: 0, fontSize: '1.25rem' }}>{title}</h3>
       </div>
       
-      <div className="game-card-middle">
-        <div className="number-circles">
-          <div className="circle black">{number1}</div>
-          <div className="circle green">{number2}</div>
+      <div className="game-card-middle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+        {/* Left Section: Roulette Wheel */}
+        <div style={{ flex: '1', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '65px', height: '65px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img 
+              src={roulette} 
+              alt="Wheel" 
+              className="spinning" 
+              style={{ 
+                width: '62px', 
+                height: '62px', 
+                objectFit: 'contain',
+                borderRadius: '50%',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+              }} 
+            />
+          </div>
         </div>
-        <div className="card-actions">
-          <button className="view-chart-btn" onClick={onViewClick}>
-            VIEW <BarChart3 size={14} />
-          </button>
+
+        {/* Middle Section: Results (Kal, Live, Aaj) */}
+        <div style={{ flex: '1.4', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '8px' }}>
+          <div className="result-column">
+            <span className="result-label" style={{ color: '#0D47A1', fontSize: '0.75rem' }}>कल</span>
+            <div className="result-box red" style={{ width: '48px', height: '42px', fontSize: '1.2rem' }}>{number1}</div>
+          </div>
+          
+          <div className="live-badge-mini blinking-blue" style={{ marginBottom: '8px', fontSize: '0.8rem', padding: '5px 12px', minWidth: '50px' }}>
+            LIVE
+          </div>
+
+          <div className="result-column">
+            <span className="result-label" style={{ color: '#1B5E20', fontSize: '0.75rem' }}>आज</span>
+            <div className="result-box green" style={{ width: '48px', height: '42px', fontSize: '1.2rem' }}>{number2}</div>
+          </div>
+        </div>
+
+        {/* Right Section: Action Button */}
+        <div style={{ flex: '1', display: 'flex', justifyContent: 'center' }}>
           <button 
-            className="play-now-btn" 
+            className={`play-now-btn ${!btnState.disabled ? 'pop-animation' : ''}`} 
             onClick={handlePlayClick}
             style={{ 
               backgroundColor: btnState.color, 
               color: btnState.color === '#FFCE3B' ? '#000' : '#FFF',
               cursor: btnState.disabled ? 'not-allowed' : 'pointer',
-              opacity: btnState.disabled ? 0.9 : 1
+              opacity: btnState.disabled ? 0.9 : 1,
+              padding: '12px 20px',
+              minWidth: '95px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '25px',
+              fontSize: '1rem',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+              border: '2px solid white',
+              fontWeight: '900',
+              textAlign: 'center'
             }}
           >
-            {btnState.text} {!btnState.disabled && '▶'}
+            {btnState.text === 'PLAY NOW' ? 'PLAY' : btnState.text}
           </button>
         </div>
       </div>
 
-      <div className="game-card-bottom" style={{flexWrap: 'wrap'}}>
-        <div className="time-item" style={{flex: 1, textAlign: 'center'}}>
+      <div className="game-card-bottom" style={{ background: 'rgba(255,255,255,0.15)', margin: '12px -1.2rem -0.5rem', padding: '8px 1.2rem', display: 'flex', justifyContent: 'center', gap: '15px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+        <div className="time-item" style={{ fontSize: '0.75rem', color: '#FFF' }}>
           <span>OPEN TIME : {formatTime12Hour(openTime)}</span>
         </div>
-        <div className="time-item" style={{flex: 1, textAlign: 'center'}}>
+        <div className="time-item" style={{ fontSize: '0.75rem', color: '#FFF' }}>
           <span>CLOSE TIME : {formatTime12Hour(closeTime)}</span>
         </div>
       </div>
@@ -713,7 +772,7 @@ function HomePage() {
 
         <div className="header-right">
           <div className="wallet-badge" onClick={() => navigate('/funds')} style={{ cursor: 'pointer' }}>
-            <CreditCard size={14} />
+            <CreditCard size={20} />
             <span>₹ {walletBalance}</span>
           </div>
           <button className="notification-btn" onClick={() => navigate('/notifications')} style={{ position: 'relative' }}>
@@ -752,7 +811,7 @@ function HomePage() {
           <div className="action-title">किसी भी समस्या के लिए</div>
         </div>
         <div className="action-row">
-          <button className="action-pill yellow" onClick={() => isLoggedIn ? navigate('/funds') : setShowAuthPopup(true)}>
+          <button className="action-pill yellow" onClick={() => isLoggedIn ? navigate('/deposit') : setShowAuthPopup(true)}>
             <span className="pill-content">₹ पैसा डालें</span>
           </button>
           <button 
@@ -769,7 +828,7 @@ function HomePage() {
           </button>
         </div>
         <div className="action-row">
-          <button className="action-pill red" onClick={() => isLoggedIn ? navigate('/funds') : setShowAuthPopup(true)}>
+          <button className="action-pill red" onClick={() => isLoggedIn ? navigate('/withdrawal') : setShowAuthPopup(true)}>
             <div className="pill-content">
               <CreditCard size={20} /> WITHDRAWAL
             </div>

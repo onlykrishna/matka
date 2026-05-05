@@ -334,13 +334,14 @@ h1 {
 .wallet-badge {
   background-color: black;
   color: white;
-  padding: 3px 8px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  border-radius: 25px;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-weight: 700;
-  font-size: 0.8rem;
+  gap: 8px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .notification-btn {
@@ -583,9 +584,25 @@ h1 {
   color: white;
   border: 4px solid #0D47A1; /* Premium Blue Border */
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* Allow badge to stick out */
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
+
+.playing-badge {
+  position: absolute;
+  top: -12px;
+  right: 15px;
+  background-color: #000;
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  z-index: 10;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
 
 .game-card-top {
   margin-bottom: 0.4rem;
@@ -598,6 +615,83 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spinning {
+  animation: spin 3s linear infinite;
+}
+
+@keyframes blinkingRed {
+  0% { background-color: #D32F2F; box-shadow: 0 0 5px rgba(211, 47, 47, 0.4); }
+  50% { background-color: #FF5252; box-shadow: 0 0 15px rgba(255, 82, 82, 0.8); }
+  100% { background-color: #D32F2F; box-shadow: 0 0 5px rgba(211, 47, 47, 0.4); }
+}
+.blinking-red {
+  animation: blinkingRed 1s infinite;
+}
+
+@keyframes blinkingBlue {
+  0% { background-color: #03A9F4; box-shadow: 0 0 5px rgba(3, 169, 244, 0.4); }
+  50% { background-color: #81D4FA; box-shadow: 0 0 15px rgba(129, 212, 250, 0.8); }
+  100% { background-color: #03A9F4; box-shadow: 0 0 5px rgba(3, 169, 244, 0.4); }
+}
+.blinking-blue {
+  animation: blinkingBlue 1s infinite;
+}
+
+@keyframes popInOut {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.pop-animation {
+  animation: popInOut 1.2s infinite ease-in-out;
+}
+
+.result-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.result-label {
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #000;
+  text-transform: uppercase;
+}
+
+.result-box {
+  width: 42px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.result-box.red { background-color: #B71C1C; }
+.result-box.green { background-color: #1B5E20; }
+
+.live-badge-mini {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 
 .game-card-middle {
   display: flex;

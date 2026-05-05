@@ -24,6 +24,8 @@ import TodayResults from './components/TodayResults';
 import PanelChart from './components/PanelChart';
 import LandingPage from './components/LandingPage';
 import NotificationsPage from './components/NotificationsPage';
+import DepositPage from './components/DepositPage';
+import WithdrawalPage from './components/WithdrawalPage';
 import logo from './assets/logo.png';
 import './index.css';
 
@@ -155,6 +157,8 @@ function App() {
         <Route path="/today-results" element={<TodayResults />} />
         <Route path="/panel-chart" element={<PanelChart />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/deposit" element={<DepositPage />} />
+        <Route path="/withdrawal" element={<WithdrawalPage />} />
       </Routes>
     </Router>
   );
