@@ -47,6 +47,7 @@ const DepositPage = () => {
   const [pollingTxnId, setPollingTxnId] = useState(null);
   const [pollingGateway, setPollingGateway] = useState(null);
   const [pollingAmount, setPollingAmount] = useState(0);
+  const [paymentUrl, setPaymentUrl] = useState('');
 
   const quickAmounts = [50, 100, 200, 500, 1000, 2000];
 
@@ -185,6 +186,14 @@ const DepositPage = () => {
     };
   }, [pollingActive, pollingTxnId, pollingGateway, pollingAmount, navigate, user, settings]);
 
+  // Scroll to payment box when it appears
+  useEffect(() => {
+    if (paymentUrl) {
+      const el = document.getElementById('payment-box');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [paymentUrl]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const isNative = Capacitor.isNativePlatform();
@@ -268,15 +277,12 @@ const DepositPage = () => {
 
         const result = await response.json();
         if (result && result.status && result.data && result.data.payment_url) {
-          if (isNative) {
-            await Browser.open({ url: result.data.payment_url });
-            setPollingTxnId(client_txn_id);
-            setPollingGateway('UPI_GATEWAY');
-            setPollingAmount(Number(amt));
-            setPollingActive(true);
-          } else {
-            window.location.href = result.data.payment_url;
-          }
+          // Set payment URL to show in iframe
+          setPaymentUrl(result.data.payment_url);
+          setPollingTxnId(client_txn_id);
+          setPollingGateway('UPI_GATEWAY');
+          setPollingAmount(Number(amt));
+          setPollingActive(true);
         } else { 
           throw new Error(result.msg || result.message || "Failed to create order. Please check Merchant ID/Key."); 
         }
@@ -331,15 +337,12 @@ const DepositPage = () => {
         const result = await response.json();
         // IMB can return status as "SUCCESS" or true/1
         if (result && (result.status === 'SUCCESS' || result.status === true || result.status === 1) && result.result?.payment_url) {
-          if (isNative) {
-            await Browser.open({ url: result.result.payment_url });
-            setPollingTxnId(order_id);
-            setPollingGateway('IMB');
-            setPollingAmount(Number(amt));
-            setPollingActive(true);
-          } else {
-            window.location.href = result.result.payment_url;
-          }
+          // Set payment URL to show in iframe
+          setPaymentUrl(result.result.payment_url);
+          setPollingTxnId(order_id);
+          setPollingGateway('IMB');
+          setPollingAmount(Number(amt));
+          setPollingActive(true);
         } else { 
           const errorMsg = result.message || result.msg || result.error || "Failed to create IMB order";
           throw new Error(errorMsg); 
@@ -364,23 +367,12 @@ const DepositPage = () => {
     } catch (err) { alert("Failed to download QR. Take a screenshot instead."); }
   };
 
+  // Polling overlay removed as requested to show iframe in-page
+  /*
   if (pollingActive) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-        <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center w-full max-w-sm text-center border border-yellow-500/30">
-          <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-          <h2 className="text-xl font-bold text-white mb-2">Processing Payment...</h2>
-          <p className="text-gray-400 mb-6 text-sm">Please complete the payment in the securely opened window. We are actively monitoring your transaction.</p>
-          <button 
-            onClick={() => { setPollingActive(false); try { Browser.close(); } catch(e){} }} 
-            className="text-red-400 text-sm hover:text-red-300 font-medium py-2 px-4 rounded-lg bg-red-400/10 hover:bg-red-400/20 transition-colors"
-          >
-            Cancel Payment
-          </button>
-        </div>
-      </div>
-    );
+    ...
   }
+  */
 
   return (
     <div className="deposit-page" style={{minHeight: '100vh', background: '#FF6600', paddingBottom: '40px'}}>
@@ -542,6 +534,36 @@ const DepositPage = () => {
             </form>
           )}
         </div>
+
+        {/* Payment Iframe Box */}
+        {paymentUrl && (
+          <div id="payment-box" style={{marginTop: '30px', background: 'white', width: '100%', maxWidth: '600px', borderRadius: '25px', padding: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', textAlign: 'center'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+              <h3 style={{margin: 0, color: '#333', fontSize: '1.1rem', fontWeight: '900'}}>Payment Gateway</h3>
+              <button 
+                onClick={() => { setPaymentUrl(''); setPollingActive(false); }}
+                style={{background: '#ffefef', color: '#ff4444', border: 'none', padding: '5px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.8rem'}}
+              >
+                Close Box
+              </button>
+            </div>
+            
+            <div style={{position: 'relative', width: '100%', height: '650px', background: '#f8f9fa', borderRadius: '15px', overflow: 'hidden', border: '2px solid #eee'}}>
+              <iframe 
+                src={paymentUrl} 
+                style={{width: '100%', height: '100%', border: 'none'}} 
+                title="Payment"
+              />
+            </div>
+            
+            <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'}}>
+              <div className="spinner-small"></div>
+              <p style={{margin: 0, color: '#666', fontSize: '0.9rem', fontWeight: 'bold'}}>
+                Monitoring your payment...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
