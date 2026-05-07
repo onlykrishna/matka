@@ -52,8 +52,10 @@ function App() {
         const url = event.url;
         if (url.includes('matkaapp://')) {
           Browser.close(); // Close external browser
-          const path = url.split('matkaapp://')[1];
+          let path = url.split('matkaapp://')[1];
           if (path) {
+            path = path.replace('&source=app', '').replace('source=app', '');
+            if (path.endsWith('?')) path = path.slice(0, -1);
             window.location.href = `/${path}`;
           }
         }
