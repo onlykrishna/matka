@@ -10,6 +10,7 @@ import {
 import { db, auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { 
   doc, 
   onSnapshot, 
@@ -140,6 +141,8 @@ const DepositPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const isNative = Capacitor.isNativePlatform();
+
     if (!amount || parseFloat(amount) < 100) {
       alert("Minimum deposit amount is ₹100.");
       return;
@@ -187,7 +190,7 @@ const DepositPage = () => {
           customer_name: userData.name || 'User',
           customer_email: userData.email || 'user@swamijimatka.com',
           customer_mobile: userData.phone || '0000000000',
-          redirect_url: (window.Capacitor && window.Capacitor.isNative) 
+          redirect_url: isNative 
             ? `matkaapp://funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`
             : `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`,
           udf1: user.uid,
@@ -195,7 +198,6 @@ const DepositPage = () => {
           udf3: 'Web Redirect Flow'
         };
 
-        const isNative = window.Capacitor && window.Capacitor.isNative;
         let response;
         
         if (isNative) {
@@ -248,14 +250,13 @@ const DepositPage = () => {
           user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
           amount: amt,
           order_id: order_id,
-          redirect_url: (window.Capacitor && window.Capacitor.isNative)
+          redirect_url: isNative
             ? `matkaapp://funds?gateway=imb&order_id=${order_id}&amount=${amt}`
             : `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}`,
           remark1: userData.email || 'user@swamiji.com',
           remark2: user.uid
         };
 
-        const isNative = window.Capacitor && window.Capacitor.isNative;
         let response;
 
         if (isNative) {
