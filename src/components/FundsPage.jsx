@@ -71,6 +71,24 @@ const FundsPage = () => {
 
         return () => unsubscribeUser();
       } else {
+        // Backward compatibility for Old APK users returning from payment gateway
+        const urlParams = new URLSearchParams(window.location.search);
+        const clientTxnId = urlParams.get('client_txn_id');
+        const orderId = urlParams.get('order_id');
+        
+        if (clientTxnId || orderId) {
+          // This is a payment gateway redirect, but user is NOT logged in on web.
+          // Therefore, this MUST be an old APK user. Auto-redirect them to the native app!
+          let appUrl = `intent://funds${window.location.search}`;
+          if (!urlParams.get('gateway')) {
+            if (clientTxnId) appUrl += '&gateway=ekqr';
+            if (orderId) appUrl += '&gateway=imb';
+          }
+          appUrl += `#Intent;scheme=matkaapp;package=com.matka.app;end`;
+          window.location.replace(appUrl);
+          return;
+        }
+
         setIsLoggedIn(false);
         setUserName('Guest User');
         setWalletBalance(0);
