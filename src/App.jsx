@@ -6,6 +6,8 @@ import { db, auth, messaging } from './firebase';
 import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
 import { initializePushNotifications } from './notifications';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import RegistrationPage from './components/RegistrationPage';
 // ... rest of imports remain same ...
 
@@ -43,6 +45,21 @@ function SplashScreen() {
 function App() {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (Capacitor.isNative) {
+      CapApp.addListener('appUrlOpen', (event) => {
+        const url = event.url;
+        if (url.includes('matkaapp://')) {
+          Browser.close(); // Close external browser
+          const path = url.split('matkaapp://')[1];
+          if (path) {
+            window.location.href = `/${path}`;
+          }
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // Initialize native push notifications for Capacitor

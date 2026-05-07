@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { db, auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { Browser } from '@capacitor/browser';
 import { 
   doc, 
   onSnapshot, 
@@ -186,7 +187,9 @@ const DepositPage = () => {
           customer_name: userData.name || 'User',
           customer_email: userData.email || 'user@swamijimatka.com',
           customer_mobile: userData.phone || '0000000000',
-          redirect_url: `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`,
+          redirect_url: (window.Capacitor && window.Capacitor.isNative) 
+            ? `matkaapp://funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`
+            : `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`,
           udf1: user.uid,
           udf2: userData.phone || '',
           udf3: 'Web Redirect Flow'
@@ -216,8 +219,12 @@ const DepositPage = () => {
 
         const result = await response.json();
         if (result && result.status && result.data && result.data.payment_url) {
-          // Direct redirect to payment page (requested by user to skip QR step)
-          window.location.href = result.data.payment_url;
+          // Direct redirect to payment page
+          if (isNative) {
+            await Browser.open({ url: result.data.payment_url });
+          } else {
+            window.location.href = result.data.payment_url;
+          }
         } else { 
           throw new Error(result.msg || result.message || "Failed to create order. Please check Merchant ID/Key."); 
         }
@@ -241,7 +248,9 @@ const DepositPage = () => {
           user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
           amount: amt,
           order_id: order_id,
-          redirect_url: `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}`,
+          redirect_url: (window.Capacitor && window.Capacitor.isNative)
+            ? `matkaapp://funds?gateway=imb&order_id=${order_id}&amount=${amt}`
+            : `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}`,
           remark1: userData.email || 'user@swamiji.com',
           remark2: user.uid
         };
@@ -269,7 +278,11 @@ const DepositPage = () => {
         const result = await response.json();
         // IMB can return status as "SUCCESS" or true/1
         if (result && (result.status === 'SUCCESS' || result.status === true || result.status === 1) && result.result?.payment_url) {
-          window.location.href = result.result.payment_url;
+          if (isNative) {
+            await Browser.open({ url: result.result.payment_url });
+          } else {
+            window.location.href = result.result.payment_url;
+          }
         } else { 
           const errorMsg = result.message || result.msg || result.error || "Failed to create IMB order";
           throw new Error(errorMsg); 
