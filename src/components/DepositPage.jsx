@@ -21,7 +21,9 @@ import {
   increment,
   query,
   where,
-  getDocs
+  getDocs,
+  runTransaction,
+  setDoc
 } from "firebase/firestore";
 import logo from '../assets/logo.png';
 import '../index.css';
@@ -42,6 +44,9 @@ const DepositPage = () => {
   const [gatewayData, setGatewayData] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('INIT');
   const [pollingActive, setPollingActive] = useState(false);
+  const [pollingTxnId, setPollingTxnId] = useState(null);
+  const [pollingGateway, setPollingGateway] = useState(null);
+  const [pollingAmount, setPollingAmount] = useState(0);
 
   const quickAmounts = [50, 100, 200, 500, 1000, 2000];
 
@@ -82,62 +87,103 @@ const DepositPage = () => {
     };
   }, [navigate]);
 
-  // Polling logic (copied from FundsPage)
+  // Real-Time Database Listener & Active Background Polling Logic
   useEffect(() => {
-    let pollInterval;
-    if (pollingActive && gatewayData?.client_txn_id && paymentStatus === 'PENDING' && user) {
-      pollInterval = setInterval(async () => {
+    let interval;
+    let unsub;
+
+    if (pollingActive && pollingTxnId && user) {
+      const txnIdKey = pollingGateway === 'IMB' ? `IMB_WH_${pollingTxnId}` : pollingTxnId;
+
+      // 1. Listen to the database record in real-time
+      unsub = onSnapshot(doc(db, "deposits", txnIdKey), (docSnap) => {
+        if (docSnap.exists() && docSnap.data().status === 'approved') {
+          setPollingActive(false);
+          try { Browser.close(); } catch(e) {}
+          navigate('/funds?status=success');
+        }
+      });
+
+      // 2. Active fallback polling (in case webhook is delayed or fails)
+      interval = setInterval(async () => {
         try {
-          const today = new Date();
-          const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-          const checkUrl = 'https://merchant.upigateway.com/api/check_order_status';
-          const payload = {
-            key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
-            client_txn_id: gatewayData.client_txn_id,
-            txn_date: dateStr
-          };
           const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
-          const response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              url: checkUrl, 
-              payload: payload
-            })
-          });
-          const result = await response.json();
-          const apiStatus = result.data?.status?.toUpperCase() || '';
-          if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
-            const q = query(collection(db, "deposits"), where("txnId", "==", gatewayData.client_txn_id));
-            const snap = await getDocs(q);
-            if (snap.empty) {
-              setPaymentStatus('COMPLETED');
-              setPollingActive(false);
-              await updateDoc(doc(db, "users", user.uid), { wallet_balance: increment(Number(result.data.amount)) });
-              await addDoc(collection(db, "deposits"), {
-                userId: user.uid,
-                amount: Number(result.data.amount),
-                method: 'UPI Gateway',
-                status: 'approved',
-                created_at: serverTimestamp(),
-                txnId: gatewayData.client_txn_id,
-                gatewayOrderId: gatewayData.order_id || ''
-              });
-              alert(`₹${result.data.amount} has been successfully added to your wallet!`);
-              navigate('/funds');
-            } else {
-              setPaymentStatus('COMPLETED');
-              setPollingActive(false);
+          let isSuccess = false;
+          let actualAmount = pollingAmount;
+          let gatewayOrderId = '';
+
+          if (pollingGateway === 'UPI_GATEWAY') {
+            const today = new Date();
+            const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+            
+            const payload = {
+              key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
+              client_txn_id: pollingTxnId,
+              txn_date: dateStr
+            };
+            
+            const response = await fetch(proxyUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: 'https://merchant.upigateway.com/api/check_order_status', payload })
+            });
+            const result = await response.json();
+            const apiStatus = String(result.data?.status || result.status || '').toUpperCase();
+            if (result && ['COMPLETED', 'SUCCESS', 'PAID', 'SUCCESSFUL', 'TRUE', '1'].includes(apiStatus)) {
+              isSuccess = true;
+              actualAmount = Number(result.data?.amount || pollingAmount);
+              gatewayOrderId = result.data?.order_id || '';
             }
-          } else if (result.status && (apiStatus === 'FAILED' || apiStatus === 'FAILURE')) {
-            setPaymentStatus('FAILED');
-            setPollingActive(false);
+          } else if (pollingGateway === 'IMB') {
+            const checkUrl = settings.imb_api_url?.replace('create-order', 'check-order-status') || 'https://secure-stage.imb.org.in/api/check-order-status';
+            const response = await fetch(proxyUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                url: checkUrl, 
+                payload: { user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb', order_id: pollingTxnId },
+                useFormEncoding: true
+              })
+            });
+            const result = await response.json();
+            const apiStatus = String(result.status || result.result?.status || '').toUpperCase();
+            if (result && ['COMPLETED', 'SUCCESS', 'PAID', 'SUCCESSFUL', 'TRUE', '1'].includes(apiStatus)) {
+              isSuccess = true;
+              actualAmount = Number(result.result?.amount || pollingAmount);
+            }
           }
-        } catch (err) { console.error("Polling error:", err); }
-      }, 5000);
+
+          if (isSuccess) {
+            // Securely credit wallet. The onSnapshot listener will catch the 'approved' update and handle navigation/closing.
+            await runTransaction(db, async (transaction) => {
+              const depositRef = doc(db, "deposits", txnIdKey);
+              const depSnap = await transaction.get(depositRef);
+              // Only process if it is strictly 'pending' to avoid double-credit
+              if (!depSnap.exists() || depSnap.data().status === 'approved') return;
+
+              const userRef = doc(db, "users", user.uid);
+              const userSnap = await transaction.get(userRef);
+              if (!userSnap.exists()) return;
+
+              transaction.update(userRef, { wallet_balance: (userSnap.data().wallet_balance || 0) + actualAmount });
+              transaction.update(depositRef, {
+                amount: actualAmount,
+                status: 'approved',
+                gatewayOrderId: gatewayOrderId,
+                note: 'Verified via Active Background Polling'
+              });
+            });
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+        }
+      }, 4000); // Poll every 4 seconds
     }
-    return () => clearInterval(pollInterval);
-  }, [pollingActive, gatewayData, paymentStatus, user, settings, navigate]);
+    return () => {
+      if (interval) clearInterval(interval);
+      if (unsub) unsub();
+    };
+  }, [pollingActive, pollingTxnId, pollingGateway, pollingAmount, navigate, user, settings]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -182,6 +228,17 @@ const DepositPage = () => {
       try {
         const createUrl = settings.upi_gateway_url || 'https://merchant.upigateway.com/api/create_order';
         const client_txn_id = `txn_${Date.now()}`;
+
+        // Create pending request BEFORE opening gateway
+        await setDoc(doc(db, "deposits", client_txn_id), {
+          userId: user.uid,
+          amount: amt,
+          method: 'UPI Gateway',
+          status: 'pending',
+          txnId: client_txn_id,
+          created_at: serverTimestamp(),
+          note: 'Created before redirect'
+        });
         const payload = {
           key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
           client_txn_id: client_txn_id,
@@ -211,9 +268,12 @@ const DepositPage = () => {
 
         const result = await response.json();
         if (result && result.status && result.data && result.data.payment_url) {
-          // Direct redirect to payment page
           if (isNative) {
             await Browser.open({ url: result.data.payment_url });
+            setPollingTxnId(client_txn_id);
+            setPollingGateway('UPI_GATEWAY');
+            setPollingAmount(Number(amt));
+            setPollingActive(true);
           } else {
             window.location.href = result.data.payment_url;
           }
@@ -235,6 +295,19 @@ const DepositPage = () => {
         }
 
         const order_id = `IMB_${Date.now()}`;
+        const txnIdKey = `IMB_WH_${order_id}`;
+
+        // Create pending request BEFORE opening gateway
+        await setDoc(doc(db, "deposits", txnIdKey), {
+          userId: user.uid,
+          amount: amt,
+          method: 'IMB Gateway',
+          status: 'pending',
+          txnId: txnIdKey,
+          gatewayOrderId: order_id,
+          created_at: serverTimestamp(),
+          note: 'Created before redirect'
+        });
         const payload = {
           customer_mobile: userData.phone || '9999999999',
           user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
@@ -260,6 +333,10 @@ const DepositPage = () => {
         if (result && (result.status === 'SUCCESS' || result.status === true || result.status === 1) && result.result?.payment_url) {
           if (isNative) {
             await Browser.open({ url: result.result.payment_url });
+            setPollingTxnId(order_id);
+            setPollingGateway('IMB');
+            setPollingAmount(Number(amt));
+            setPollingActive(true);
           } else {
             window.location.href = result.result.payment_url;
           }
@@ -286,6 +363,24 @@ const DepositPage = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) { alert("Failed to download QR. Take a screenshot instead."); }
   };
+
+  if (pollingActive) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+        <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center w-full max-w-sm text-center border border-yellow-500/30">
+          <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <h2 className="text-xl font-bold text-white mb-2">Processing Payment...</h2>
+          <p className="text-gray-400 mb-6 text-sm">Please complete the payment in the securely opened window. We are actively monitoring your transaction.</p>
+          <button 
+            onClick={() => { setPollingActive(false); try { Browser.close(); } catch(e){} }} 
+            className="text-red-400 text-sm hover:text-red-300 font-medium py-2 px-4 rounded-lg bg-red-400/10 hover:bg-red-400/20 transition-colors"
+          >
+            Cancel Payment
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="deposit-page" style={{minHeight: '100vh', background: '#FF6600', paddingBottom: '40px'}}>

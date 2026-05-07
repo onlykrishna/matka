@@ -15,9 +15,9 @@ const AppRedirect = () => {
       searchParams.set('gateway', gateway);
     }
     
-    // Construct the deep link back to the native app
-    const appUrl = `matkaapp://funds?${searchParams.toString()}`;
-    window.location.href = appUrl;
+    // Construct the Android intent deep link back to the native app to bypass user-gesture restrictions
+    const appUrl = `intent://funds?${searchParams.toString()}#Intent;scheme=matkaapp;package=com.matka.app;end`;
+    window.location.replace(appUrl);
   };
 
   // Attempt auto-redirect, if Chrome blocks it, user can click the button

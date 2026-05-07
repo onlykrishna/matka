@@ -46,6 +46,20 @@ exports.paymentProxy = onRequest({ region: "us-central1", timeoutSeconds: 30 }, 
         validateStatus: () => true // Don't throw on 4xx/5xx
       });
 
+      // Mutate response to fix hardcoded strict checks in old APKs
+      if (response.data && response.data.data && response.data.data.status) {
+         const s = String(response.data.data.status).toUpperCase();
+         if (['PAID', 'SUCCESSFUL', 'TRUE', '1'].includes(s)) {
+             response.data.data.status = 'SUCCESS';
+         }
+      }
+      if (response.data && response.data.status) {
+         const s = String(response.data.status).toUpperCase();
+         if (['PAID', 'SUCCESSFUL', 'TRUE', '1'].includes(s)) {
+             response.data.status = 'SUCCESS';
+         }
+      }
+
       console.log(`[Proxy] Gateway Status: ${response.status}`);
       return res.status(response.status).json(response.data);
     } catch (error) {
