@@ -122,6 +122,11 @@ const FundsPage = () => {
 
     // Check for Gateway Redirection
     const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('source') === 'app') {
+      window.location.href = `matkaapp://funds${window.location.search}`;
+      return;
+    }
+
     const txnStatus = urlParams.get('status')?.toLowerCase();
     const clientTxnId = urlParams.get('client_txn_id');
     const gateway = urlParams.get('gateway');
