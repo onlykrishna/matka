@@ -198,26 +198,16 @@ const DepositPage = () => {
           udf3: 'Web Redirect Flow'
         };
 
-        let response;
-        
-        if (isNative) {
-          response = await fetch(createUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } else {
-          // Use the actual Firebase function URL for this project
-          const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
-          response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              url: createUrl, 
-              payload: payload 
-            })
-          });
-        }
+        // Use the proxy to avoid CORS issues on native AND web
+        const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: createUrl, 
+            payload: payload 
+          })
+        });
 
         const result = await response.json();
         if (result && result.status && result.data && result.data.payment_url) {
@@ -257,24 +247,13 @@ const DepositPage = () => {
           remark2: user.uid
         };
 
-        let response;
-
-        if (isNative) {
-          const formData = new URLSearchParams();
-          Object.keys(payload).forEach(key => formData.append(key, String(payload[key])));
-          response = await fetch(createUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-          });
-        } else {
-          const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
-          response = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: createUrl, payload: payload, useFormEncoding: true })
-          });
-        }
+        // Use the proxy to avoid CORS issues on native AND web
+        const proxyUrl = 'https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/paymentProxy';
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: createUrl, payload: payload, useFormEncoding: true })
+        });
 
         const result = await response.json();
         // IMB can return status as "SUCCESS" or true/1
