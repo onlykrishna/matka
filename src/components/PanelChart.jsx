@@ -146,7 +146,7 @@ function PanelChart() {
           </div>
           <div className="header-right">
             <div className="wallet-badge">
-              <CreditCard size={16} />
+              <CreditCard size={10} />
               <span>₹ {walletBalance}</span>
             </div>
             <button className="notification-btn"><Bell size={20} /></button>

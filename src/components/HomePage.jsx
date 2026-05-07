@@ -754,7 +754,7 @@ function HomePage() {
 
         <div className="header-right">
           <div className="wallet-badge" onClick={() => navigate('/funds')} style={{ cursor: 'pointer' }}>
-            <CreditCard size={20} />
+            <CreditCard size={12} />
             <span>₹ {walletBalance}</span>
           </div>
           <button className="notification-btn" onClick={() => navigate('/notifications')} style={{ position: 'relative' }}>

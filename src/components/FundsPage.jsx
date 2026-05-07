@@ -375,7 +375,7 @@ const FundsPage = () => {
 
         <div className="header-right">
           <div className="wallet-badge" onClick={() => navigate('/funds')} style={{ cursor: 'pointer' }}>
-            <CreditCard size={16} />
+            <CreditCard size={10} />
             <span>₹ {walletBalance.toFixed(2)}</span>
           </div>
           <button className="notification-btn" onClick={() => navigate('/notifications')} style={{ position: 'relative' }}>
