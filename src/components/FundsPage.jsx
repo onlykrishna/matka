@@ -180,10 +180,15 @@ const FundsPage = () => {
               });
 
               const result = await response.json();
-              const apiStatus = result.data?.status?.toUpperCase() || '';
+              const apiStatus = String(result.data?.status || result.status || '').toUpperCase();
+              const validStatuses = ['COMPLETED', 'SUCCESS', 'PAID', 'SUCCESSFUL', 'TRUE', '1'];
 
-              if (result && result.status && (apiStatus === 'COMPLETED' || apiStatus === 'SUCCESS')) {
-                const amt = Number(result.data.amount);
+              if (result && validStatuses.includes(apiStatus)) {
+                const amt = Number(result.data?.amount || urlAmount || 0);
+                if (amt <= 0) {
+                  alert("Gateway Error: Could not determine deposit amount.");
+                  return;
+                }
                 const userRef = doc(db, "users", userUid);
                 const userSnap = await transaction.get(userRef);
                 
@@ -206,14 +211,16 @@ const FundsPage = () => {
                   note: 'Verified Redirect Deposit'
                 });
 
-                // Success UI handled outside transaction
                 setImbSuccessAmount(amt);
                 setShowImbSuccess(true);
                 setTimeout(() => setShowImbSuccess(false), 3000);
+              } else {
+                alert(`Payment verification failed. Gateway Status: ${apiStatus || 'UNKNOWN'}`);
               }
             });
           } catch (err) {
             console.error("Verification failed:", err);
+            alert("Verification failed: " + err.message);
           }
         };
         verifyTxn();
@@ -245,8 +252,15 @@ const FundsPage = () => {
               });
 
               const result = await response.json();
-              if (result && (result.status === 'COMPLETED' || result.status === 'SUCCESS')) {
-                const amt = Number(result.result?.amount || urlAmount);
+              const apiStatus = String(result.status || result.result?.status || '').toUpperCase();
+              const validStatuses = ['COMPLETED', 'SUCCESS', 'PAID', 'SUCCESSFUL', 'TRUE', '1'];
+
+              if (result && validStatuses.includes(apiStatus)) {
+                const amt = Number(result.result?.amount || urlAmount || 0);
+                if (amt <= 0) {
+                  alert("Gateway Error: Could not determine deposit amount.");
+                  return;
+                }
                 const userRef = doc(db, "users", userUid);
                 const userSnap = await transaction.get(userRef);
                 
@@ -272,10 +286,13 @@ const FundsPage = () => {
                 setImbSuccessAmount(amt);
                 setShowImbSuccess(true);
                 setTimeout(() => setShowImbSuccess(false), 3000);
+              } else {
+                alert(`IMB Payment verification failed. Gateway Status: ${apiStatus || 'UNKNOWN'}`);
               }
             });
           } catch (err) {
             console.error("IMB Verification failed:", err);
+            alert("IMB Verification failed: " + err.message);
           }
         };
         verifyIMB();
