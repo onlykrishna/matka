@@ -191,7 +191,7 @@ const DepositPage = () => {
           customer_email: userData.email || 'user@swamijimatka.com',
           customer_mobile: userData.phone || '0000000000',
           redirect_url: isNative 
-            ? `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}&source=app`
+            ? `https://swamijimatka.com/app-redirect/ekqr`
             : `https://swamijimatka.com/funds?gateway=ekqr&client_txn_id=${client_txn_id}&amount=${amt}`,
           udf1: user.uid,
           udf2: userData.phone || '',
@@ -241,7 +241,7 @@ const DepositPage = () => {
           amount: amt,
           order_id: order_id,
           redirect_url: isNative
-            ? `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}&source=app`
+            ? `https://swamijimatka.com/app-redirect/imb`
             : `https://swamijimatka.com/funds?gateway=imb&order_id=${order_id}&amount=${amt}`,
           remark1: userData.email || 'user@swamiji.com',
           remark2: user.uid

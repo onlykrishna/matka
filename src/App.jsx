@@ -28,6 +28,7 @@ import LandingPage from './components/LandingPage';
 import NotificationsPage from './components/NotificationsPage';
 import DepositPage from './components/DepositPage';
 import WithdrawalPage from './components/WithdrawalPage';
+import AppRedirect from './components/AppRedirect';
 import logo from './assets/logo.png';
 import './index.css';
 
@@ -178,6 +179,7 @@ function App() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/deposit" element={<DepositPage />} />
         <Route path="/withdrawal" element={<WithdrawalPage />} />
+        <Route path="/app-redirect/:gateway" element={<AppRedirect />} />
       </Routes>
     </Router>
   );

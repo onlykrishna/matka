@@ -344,27 +344,6 @@ const FundsPage = () => {
     return () => unsubscribe();
   }, [userUid]);
 
-  const isAppRedirect = new URLSearchParams(window.location.search).get('source') === 'app';
-  if (isAppRedirect) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#F8F9FA', padding: '20px', textAlign: 'center' }}>
-        <CheckCircle size={64} color="#4CAF50" style={{ marginBottom: '20px' }} />
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#333' }}>Transaction Complete</h2>
-        <p style={{ color: '#666', fontSize: '16px', marginBottom: '30px' }}>Please return to the app to update your wallet balance.</p>
-        <button 
-          onClick={() => {
-            let appUrl = `matkaapp://funds${window.location.search}`;
-            appUrl = appUrl.replace('&source=app', '').replace('source=app', '');
-            window.location.href = appUrl;
-          }}
-          style={{ padding: '15px 40px', backgroundColor: '#D32F2F', color: 'white', border: 'none', borderRadius: '30px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(211, 47, 47, 0.3)' }}
-        >
-          Return to App
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="home-container" style={{background: '#F8F9FA'}}>
       <Sidebar 
