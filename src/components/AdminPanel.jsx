@@ -1134,6 +1134,7 @@ const AdminPanel = () => {
         uid: user.uid,
         name: newUserName,
         phone: newUserPhone,
+        password: newUserPassword, // Store password for admin visibility
         wallet_balance: 0,
         role: 'user',
         status: 'active',
@@ -2110,6 +2111,9 @@ const AdminPanel = () => {
                     </div>
                     <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #ddd', paddingBottom: '10px'}}>
                       <strong style={{color: '#666'}}>Phone:</strong> <span style={{fontWeight: 'bold'}}>{viewingUser.phone}</span>
+                    </div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #ddd', paddingBottom: '10px'}}>
+                      <strong style={{color: '#666'}}>Password:</strong> <span style={{color: '#E65100', fontWeight: 'bold'}}>{viewingUser.password || 'Not Stored'}</span>
                     </div>
                     <div style={{display: 'flex', justifyContent: 'space-between'}}>
                       <strong style={{color: '#666'}}>Balance:</strong> <span style={{color: '#1B5E20', fontWeight: 'bold'}}>₹ {viewingUser.wallet_balance || 0}</span>

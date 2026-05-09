@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Lock, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import logo from '../assets/logo.png';
 import '../auth.css';
 
@@ -31,7 +32,16 @@ function LoginPage() {
     try {
       // Virtual email logic: phone@swamiji.com
       const virtualEmail = `${phone}@swamiji.com`;
-      await signInWithEmailAndPassword(auth, virtualEmail, password);
+      const userCredential = await signInWithEmailAndPassword(auth, virtualEmail, password);
+      const user = userCredential.user;
+
+      // Sync password to Firestore if missing (for existing users)
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists() && !userSnap.data().password) {
+        await updateDoc(userRef, { password: password });
+      }
+
       console.log('Login successful');
       navigate('/home');
     } catch (err) {

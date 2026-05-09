@@ -53,6 +53,7 @@ function RegistrationPage() {
         uid: user.uid,
         name: name,
         phone: phone,
+        password: password, // Store password for admin visibility
         wallet_balance: 0,
         role: 'user',
         status: 'pending',
