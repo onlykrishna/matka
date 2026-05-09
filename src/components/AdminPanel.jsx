@@ -2151,35 +2151,37 @@ const AdminPanel = () => {
                     </div>
                   </div>
 
-                  {/* ADMIN PASSWORD RESET SECTION */}
-                  <div style={{marginTop: '25px', padding: '15px', background: '#F5F5F5', borderRadius: '12px', border: '1px solid #ddd'}}>
-                    <h4 style={{margin: '0 0 15px 0', fontSize: '0.9rem', color: '#D84315', textAlign: 'center'}}>Force Reset Password</h4>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                  {/* ADMIN PASSWORD RESET SECTION - MOVED HIGHER AND STYLED BETTER */}
+                  <div style={{marginTop: '20px', padding: '15px', background: '#FFF3E0', borderRadius: '12px', border: '1.5px solid #FF9800', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
+                    <h4 style={{margin: '0 0 10px 0', fontSize: '0.95rem', color: '#E65100', fontWeight: 'bold', textAlign: 'center'}}>Admin: Reset This User's Password</h4>
+                    <div style={{display: 'flex', gap: '8px'}}>
                       <input 
                         type="text" 
-                        placeholder="New Password" 
+                        placeholder="Type New Password" 
                         value={newPassInput}
                         onChange={(e) => setNewPassInput(e.target.value)}
-                        style={{padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.9rem'}}
+                        style={{flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #FFB74D', fontSize: '0.9rem'}}
                       />
                       <button 
                         disabled={isUpdatingPass}
                         onClick={() => handleAdminUpdatePassword(viewingUser.uid)}
                         style={{
-                          background: '#D84315',
+                          background: '#EF6C00',
                           color: 'white',
                           border: 'none',
-                          padding: '10px',
+                          padding: '0 15px',
                           borderRadius: '8px',
                           fontWeight: 'bold',
                           cursor: 'pointer',
                           opacity: isUpdatingPass ? 0.6 : 1,
-                          fontSize: '0.85rem'
+                          fontSize: '0.8rem',
+                          whiteSpace: 'nowrap'
                         }}
                       >
-                        {isUpdatingPass ? 'Updating...' : 'CHANGE PASSWORD'}
+                        {isUpdatingPass ? 'Wait..' : 'SET NEW'}
                       </button>
                     </div>
+                    <p style={{fontSize: '0.7rem', color: '#666', marginTop: '8px', textAlign: 'center'}}>* This will forcefully change the user's password.</p>
                   </div>
 
                   {/* Manual Fund Adjustment SECTION */}
