@@ -254,3 +254,35 @@ exports.upiWebhook = onRequest({ region: "us-central1", timeoutSeconds: 30 }, as
     }
   });
 });
+
+/**
+ * Admin utility to reset any user's password
+ */
+exports.adminResetUserPassword = onRequest({ region: "us-central1", timeoutSeconds: 30 }, async (req, res) => {
+  return cors(req, res, async () => {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ status: false, message: 'Method Not Allowed' });
+    }
+
+    try {
+      const { userId, newPassword } = req.body;
+      if (!userId || !newPassword) {
+        return res.status(400).json({ status: false, message: 'Missing userId or newPassword' });
+      }
+
+      console.log(`[Admin] Resetting password for user: ${userId}`);
+      
+      await admin.auth().updateUser(userId, {
+        password: newPassword
+      });
+
+      return res.status(200).json({ status: true, message: 'Password updated successfully' });
+    } catch (error) {
+      console.error('[Admin] Reset Error:', error.message);
+      return res.status(500).json({ 
+        status: false, 
+        message: 'Auth Update Error: ' + error.message 
+      });
+    }
+  });
+});

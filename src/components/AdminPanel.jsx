@@ -178,6 +178,8 @@ const AdminPanel = () => {
   const [manualTxAmt, setManualTxAmt] = useState('');
   const [manualTxType, setManualTxType] = useState('NONE'); // NONE, DEPOSIT, WITHDRAW
   const [isManualTxLoading, setIsManualTxLoading] = useState(false);
+  const [newPassInput, setNewPassInput] = useState('');
+  const [isUpdatingPass, setIsUpdatingPass] = useState(false);
 
   // Banner States
   const [bannerUrls, setBannerUrls] = useState(['', '', '']);
@@ -784,6 +786,35 @@ const AdminPanel = () => {
   const getUserInfo = (uid) => {
     const user = usersList.find(u => u.uid === uid);
     return user ? `${user.name} (${user.phone})` : "Unknown User";
+  };
+
+  const handleAdminUpdatePassword = async (uid) => {
+    if (!newPassInput || newPassInput.length < 6) {
+      alert("Password must be at least 6 characters long.");
+      return;
+    }
+    setIsUpdatingPass(true);
+    try {
+      const response = await fetch('https://us-central1-swami-ji-matka-acf76.cloudfunctions.net/adminResetUserPassword', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, newPassword: newPassInput })
+      });
+      const data = await response.json();
+      if (data.status) {
+        // Update Firestore too
+        await updateDoc(doc(db, 'users', uid), { password: newPassInput });
+        alert("Password updated successfully!");
+        setViewingUser({ ...viewingUser, password: newPassInput });
+        setNewPassInput('');
+      } else {
+        alert("Error: " + data.message);
+      }
+    } catch (err) {
+      alert("Failed to update password: " + err.message);
+    } finally {
+      setIsUpdatingPass(false);
+    }
   };
 
   const handleAddMarketName = async () => {
@@ -2117,6 +2148,37 @@ const AdminPanel = () => {
                     </div>
                     <div style={{display: 'flex', justifyContent: 'space-between'}}>
                       <strong style={{color: '#666'}}>Balance:</strong> <span style={{color: '#1B5E20', fontWeight: 'bold'}}>₹ {viewingUser.wallet_balance || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* ADMIN PASSWORD RESET SECTION */}
+                  <div style={{marginTop: '25px', padding: '15px', background: '#F5F5F5', borderRadius: '12px', border: '1px solid #ddd'}}>
+                    <h4 style={{margin: '0 0 15px 0', fontSize: '0.9rem', color: '#D84315', textAlign: 'center'}}>Force Reset Password</h4>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                      <input 
+                        type="text" 
+                        placeholder="New Password" 
+                        value={newPassInput}
+                        onChange={(e) => setNewPassInput(e.target.value)}
+                        style={{padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.9rem'}}
+                      />
+                      <button 
+                        disabled={isUpdatingPass}
+                        onClick={() => handleAdminUpdatePassword(viewingUser.uid)}
+                        style={{
+                          background: '#D84315',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          opacity: isUpdatingPass ? 0.6 : 1,
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        {isUpdatingPass ? 'Updating...' : 'CHANGE PASSWORD'}
+                      </button>
                     </div>
                   </div>
 
