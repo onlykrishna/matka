@@ -385,18 +385,20 @@ h1 {
 
 /* Banner */
 .banner-section {
-  padding: 0.5rem 1rem;
+  padding: 0;
   position: relative;
+  width: 100%;
+  background: #fff; /* Ensure it matches the container if there's any gap */
 }
 
 .banner-slider {
   width: 100%;
-  aspect-ratio: 3.5 / 1; /* Approximate 3.5:1 as requested */
+  aspect-ratio: 3.5 / 1; 
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-  background-color: #EEE;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: #fff;
 }
 
 .slider-img {
