@@ -263,6 +263,32 @@ h1 {
   }
 }
 
+@keyframes neon-glow {
+  0% {
+    text-shadow: 0 0 2px #fff, 0 0 4px #fff, 0 0 6px #00d2ff, 0 0 8px #00d2ff;
+    opacity: 0.6;
+    transform: scale(0.96);
+  }
+  100% {
+    text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 40px #00d2ff, 0 0 60px #00d2ff, 0 0 80px #00d2ff;
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.neon-glow-text {
+  color: #fff;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  animation: neon-glow 1s ease-in-out infinite alternate;
+  text-align: center;
+  width: 100%;
+  font-size: 1.2rem;
+  display: inline-block;
+  will-change: transform, text-shadow;
+}
+
 /* Home Page Styles */
 .home-container {
   min-height: 100vh;

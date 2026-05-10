@@ -79,6 +79,7 @@ const AdminPanel = () => {
     { id: 'Withdrawal', label: 'Withdrawal', icon: <ArrowDownCircle size={20} /> },
     { id: 'Transactions', label: 'Transactions', icon: <History size={20} /> },
     { id: 'Banner Settings', label: 'Banner Settings', icon: <PlusCircle size={20} /> },
+    { id: 'Announcement Strip', label: 'Announcement Strip', icon: <PlusCircle size={20} /> },
     { id: 'Notifications', label: 'Notifications', icon: <Bell size={20} />, badge: hasUnread },
     { id: 'Market Settings', label: 'Market Settings', icon: <PlusCircle size={20} /> },
     { id: 'Setting', label: 'Setting', icon: <SettingsIcon size={20} /> },
@@ -204,6 +205,21 @@ const AdminPanel = () => {
 
   // Rollback State
   const [isRollingBack, setIsRollingBack] = useState(null);
+
+  // Announcement State
+  const [announcementText, setAnnouncementText] = useState('');
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+  const [announcementSuccess, setAnnouncementSuccess] = useState('');
+
+  useEffect(() => {
+    if (!isAdminLoggedIn) return;
+    const unsub = onSnapshot(doc(db, "settings", "announcement"), (s) => {
+      if (s.exists()) {
+        setAnnouncementText(s.data().text || '');
+      }
+    });
+    return () => unsub();
+  }, [isAdminLoggedIn]);
 
   useEffect(() => {
     if (isAdminLoggedIn) {
@@ -817,6 +833,24 @@ const AdminPanel = () => {
     }
   };
 
+  const handleSaveAnnouncement = async () => {
+    setIsSavingAnnouncement(true);
+    try {
+      await setDoc(doc(db, "settings", "announcement"), {
+        text: announcementText,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setAnnouncementSuccess('Announcement Updated Successfully!');
+      setTimeout(() => setAnnouncementSuccess(''), 3000);
+    } catch (err) {
+      console.error("Error saving announcement", err);
+      alert("Failed to save: " + err.message);
+    } finally {
+      setIsSavingAnnouncement(true); // Should be false, wait
+      setIsSavingAnnouncement(false);
+    }
+  };
+
   const handleAddMarketName = async () => {
     if (!newMarketName.trim()) return;
     try {
@@ -876,8 +910,8 @@ const AdminPanel = () => {
 
   const handleUpdateResult = async (game, num2, explicitId = null) => {
     if (isPublishingResult) return;
-    if (!num2 || num2.length !== 2) {
-      alert("Please enter a valid 2-digit winning number (e.g. 05)");
+    if (!num2 || (num2.length < 2 || num2.length > 3)) {
+      alert("Please enter a valid result (e.g. 05, HOL, XX)");
       return;
     }
 
@@ -1902,13 +1936,13 @@ const AdminPanel = () => {
                 </div>
 
                 <div className="form-group" style={{marginBottom: '25px'}}>
-                  <label>3. Enter Winning Number (2 Digits)</label>
+                  <label>3. Enter Result (Number or Words like HOL, XX)</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. 52" 
-                    maxLength={2} 
+                    placeholder="e.g. 52 or HOL" 
+                    maxLength={3} 
                     value={resNum} 
-                    onChange={e => setResNum(e.target.value.replace(/[^0-9]/g, ''))} 
+                    onChange={e => setResNum(e.target.value.toUpperCase())} 
                     required 
                     style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '10px', width: '100%', fontSize: '1.2rem', fontWeight: 'bold', textAlign: 'center'}}
                   />
@@ -2468,6 +2502,50 @@ const AdminPanel = () => {
                   {depositErrorMsg && <div style={{padding: '15px', borderRadius: '10px', background: '#FEE2E2', color: '#991B1B', marginBottom: '20px', fontWeight: '700'}}>{depositErrorMsg}</div>}
                 </div>
               )}
+            </div>
+          </div>
+        );
+      case 'Announcement Strip':
+        return (
+          <div className="admin-view">
+            <h1>Announcement Strip</h1>
+            <p className="admin-subtitle">Edit the scrolling text that appears at the top of the homepage.</p>
+            
+            <div className="admin-form-container" style={{background: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)'}}>
+              <div className="form-group" style={{marginBottom: '25px'}}>
+                <label style={{fontWeight: 'bold', display: 'block', marginBottom: '10px', fontSize: '1.1rem'}}>Announcement Text</label>
+                <textarea 
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  placeholder="Enter your announcement here (e.g. Special Offer: Get 10% extra on first deposit!)"
+                  style={{
+                    width: '100%',
+                    minHeight: '150px',
+                    padding: '15px',
+                    borderRadius: '12px',
+                    border: '2px solid #E0E5F2',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    lineHeight: '1.5'
+                  }}
+                />
+                <p style={{fontSize: '0.8rem', color: '#718096', marginTop: '10px'}}>* This text will scroll from right to left in a black strip on the home page.</p>
+              </div>
+
+              {announcementSuccess && (
+                <div style={{marginBottom: '20px', padding: '15px', borderRadius: '10px', background: '#D1FAE5', color: '#065F46', fontWeight: 'bold'}}>
+                  {announcementSuccess}
+                </div>
+              )}
+
+              <button 
+                onClick={handleSaveAnnouncement}
+                disabled={isSavingAnnouncement}
+                className="admin-btn-primary"
+                style={{height: '55px', backgroundColor: '#000', color: '#FFF'}}
+              >
+                {isSavingAnnouncement ? 'SAVING...' : 'SAVE ANNOUNCEMENT'}
+              </button>
             </div>
           </div>
         );

@@ -278,6 +278,16 @@ function HomePage() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [showInstallInfo, setShowInstallInfo] = useState(false);
   const [activeMarketTitles, setActiveMarketTitles] = useState(null);
+  const [announcement, setAnnouncement] = useState('');
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "announcement"), (s) => {
+      if (s.exists()) {
+        setAnnouncement(s.data().text || '');
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     // Check if already installed
@@ -647,7 +657,7 @@ function HomePage() {
         await navigator.share({
           title: 'Swami Ji Matka',
           text: 'Play Swami Ji Matka for the fastest results and payments.',
-          url: 'https://swamijimatka.com'
+          url: 'https://swamijimatka.com/'
         });
       } catch (err) {
         console.error("Error sharing", err);
@@ -776,15 +786,24 @@ function HomePage() {
             />
           ))}
         </div>
-        <div className="banner-dots">
-          {banners.map((_, index) => (
-            <span 
-              key={index}
-              className={`dot ${index === currentBanner ? 'active' : ''}`}
-            ></span>
-          ))}
-        </div>
       </section>
+
+      {/* Announcement Strip */}
+      <div style={{
+        background: '#000',
+        padding: '12px 0',
+        width: '100%',
+        boxShadow: '0 0 15px rgba(0,210,255,0.4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderTop: '1px solid #333',
+        borderBottom: '1px solid #333'
+      }}>
+        <div className="neon-glow-text">
+          {announcement || 'SWAMI JI MATKA'}
+        </div>
+      </div>
 
       {/* Quick Actions Grid */}
       <section className="quick-actions">
