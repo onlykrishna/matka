@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Share as CapacitorShare } from '@capacitor/share';
 import { 
   LayoutDashboard, 
   Bell, 
@@ -652,18 +653,15 @@ function HomePage() {
   }, []);
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Swami Ji Matka',
-          text: 'Play Swami Ji Matka for the fastest results and payments.',
-          url: 'https://swamijimatka.com/'
-        });
-      } catch (err) {
-        console.error("Error sharing", err);
-      }
-    } else {
-      alert("Sharing is not supported on this device/browser.");
+    try {
+      await CapacitorShare.share({
+        title: 'Swami Ji Matka',
+        text: 'Play Swami Ji Matka for the fastest results and payments.',
+        url: 'https://swamijimatka.com/',
+        dialogTitle: 'Share Swami Ji Matka',
+      });
+    } catch (err) {
+      console.error("Error sharing", err);
     }
   };
 
