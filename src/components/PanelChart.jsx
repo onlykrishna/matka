@@ -66,35 +66,48 @@ function PanelChart() {
         const year = parseInt(yearStr, 10);
         const monthIndex = parseInt(monthStr, 10) - 1;
 
-        // Firebase range
-        const startOfMonth = new Date(year, monthIndex, 1);
-        const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        // Fetch with a small buffer to catch midnight-spanning games
+        const startOfQuery = new Date(year, monthIndex, 1);
+        startOfQuery.setDate(startOfQuery.getDate() - 2); 
+        const endOfQuery = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        endOfQuery.setDate(endOfQuery.getDate() + 2);
 
         const gamesRef = collection(db, "games");
         const q = query(
           gamesRef, 
-          where('created_at', '>=', startOfMonth),
-          where('created_at', '<=', endOfMonth)
+          where('created_at', '>=', startOfQuery),
+          where('created_at', '<=', endOfQuery)
         );
 
         const snap = await getDocs(q);
         
-        // Build Lookup: lookup[dateString][marketName] = resultNumber
         const lookup = {};
         
         snap.forEach(doc => {
           const data = doc.data();
-          if (data.status === 'completed' && data.created_at && data.created_at.toDate) {
-            const gameDate = data.created_at.toDate();
-            // dateString example: "01", "09", "15"
-            const dateKey = String(gameDate.getDate()).padStart(2, '0');
-            
-            if (!lookup[dateKey]) {
-              lookup[dateKey] = {};
+          if (data.status === 'completed') {
+            let dayKey = null;
+
+            if (data.officialResultDate) {
+              // YYYY-MM-DD format
+              const [y, m, d] = data.officialResultDate.split('-').map(Number);
+              // Only include if matches selected month
+              if (y === year && m === (monthIndex + 1)) {
+                dayKey = String(d).padStart(2, '0');
+              }
+            } else if (data.created_at && data.created_at.toDate) {
+              const gameDate = data.created_at.toDate();
+              if (gameDate.getFullYear() === year && gameDate.getMonth() === monthIndex) {
+                dayKey = String(gameDate.getDate()).padStart(2, '0');
+              }
             }
-            // For multiple games on same day, we assume 1 result per day per market. 
-            // In case of overlap, the last written overwrites it.
-            lookup[dateKey][data.title] = data.number2;
+
+            if (dayKey) {
+              if (!lookup[dayKey]) {
+                lookup[dayKey] = {};
+              }
+              lookup[dayKey][data.title] = data.number2;
+            }
           }
         });
         

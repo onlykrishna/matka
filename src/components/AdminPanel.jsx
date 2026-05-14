@@ -1024,50 +1024,62 @@ const AdminPanel = () => {
         }
       });
 
-      // 2. Process Winning Users securely via Transactions
+      // 2. Process ALL Bets and User Balances in batches for "Immediate" settlement
+      let currentBatch = writeBatch(db);
+      let opCount = 0;
+
+      const commitAndReset = async () => {
+        if (opCount > 0) {
+          await currentBatch.commit();
+          currentBatch = writeBatch(db);
+          opCount = 0;
+        }
+      };
+
+      // A. Process Winners (Balance + Bet Status)
       for (const [uid, winData] of Object.entries(winningUsers)) {
         const userRef = doc(db, 'users', uid);
-        await runTransaction(db, async (transaction) => {
-          const userSnap = await transaction.get(userRef);
-          if (userSnap.exists()) {
-             const currentBal = userSnap.data().wallet_balance || 0;
-             transaction.update(userRef, { wallet_balance: currentBal + winData.totalWon });
-             
-             winData.betDocs.forEach(bet => {
-               const bRef = doc(db, 'bets', bet.id);
-               transaction.update(bRef, {
-                 status: 'win',
-                 wonAmount: bet.wonAmount,
-                 winningNumber: num2,
-                 settledAt: serverTimestamp()
-               });
-             });
-          }
+        currentBatch.update(userRef, { 
+          wallet_balance: increment(winData.totalWon) 
         });
-      }
+        opCount++;
+        if (opCount >= 500) await commitAndReset();
 
-      // 3. Mark losing bets in batches
-      let batch = writeBatch(db);
-      let batchCount = 0;
-      for (const betId of losingBets) {
-        batch.update(doc(db, 'bets', betId), { status: 'loss', winningNumber: num2, settledAt: serverTimestamp() });
-        batchCount++;
-        if (batchCount === 500) {
-          await batch.commit();
-          batch = writeBatch(db);
-          batchCount = 0;
+        for (const bet of winData.betDocs) {
+          currentBatch.update(doc(db, 'bets', bet.id), {
+            status: 'win',
+            wonAmount: bet.wonAmount,
+            winningNumber: num2,
+            settledAt: serverTimestamp()
+          });
+          opCount++;
+          if (opCount >= 500) await commitAndReset();
         }
       }
-      if (batchCount > 0) await batch.commit();
+
+      // B. Process Losers
+      for (const betId of losingBets) {
+        currentBatch.update(doc(db, 'bets', betId), {
+          status: 'loss',
+          winningNumber: num2,
+          settledAt: serverTimestamp()
+        });
+        opCount++;
+        if (opCount >= 500) await commitAndReset();
+      }
+
+      await commitAndReset();
 
       // 4. Update Game Status
+      const resultDateStr = targetDate.toISOString().split('T')[0];
       const gameRef = doc(db, "games", gameId);
       await updateDoc(gameRef, {
         number2: num2,
         status: 'completed',
         totalPlaced: gameTotalPlaced,
         totalWon: gameTotalWon,
-        result_published_at: serverTimestamp()
+        result_published_at: serverTimestamp(),
+        officialResultDate: resultDateStr
       });
 
       // 5. Send Notification to all users
@@ -1901,7 +1913,8 @@ const AdminPanel = () => {
                       status: 'completed',
                       created_at: new Date(resDate + 'T12:00:00'),
                       isBackfilled: true,
-                      result_published_at: serverTimestamp()
+                      result_published_at: serverTimestamp(),
+                      officialResultDate: resDate
                     });
                     setResSuccess(`Historical result for ${resTitle} (${resDate}) added to chart!`);
                   }
