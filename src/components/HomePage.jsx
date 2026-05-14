@@ -529,9 +529,24 @@ function HomePage() {
         const openSession = sessions.find(s => s.status === 'open');
         const displayGame = { ...(openSession || sessions[0]) };
 
+        // Helper to get date from a game doc
+        const getGDate = (g) => {
+          if (g.officialResultDate) return g.officialResultDate;
+          if (g.id.includes('_')) {
+            const parts = g.id.split('_');
+            const dStr = parts[parts.length - 1]; // "YYYY-MM-DD"
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return dStr;
+          }
+          if (g.created_at?.toDate) {
+            const d = g.created_at.toDate();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          }
+          return '';
+        };
+
         // STRIKT DATE MATCHING (Matches Chart)
-        const todayRes = sessions.find(s => s.officialResultDate === todayStr && s.status === 'completed');
-        const yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
+        const todayRes = sessions.find(s => s.status === 'completed' && getGDate(s) === todayStr);
+        const yesterdayRes = sessions.find(s => s.status === 'completed' && getGDate(s) === yesterdayStr);
 
         displayGame.number2 = todayRes ? todayRes.number2 : 'XX';
         displayGame.number1 = yesterdayRes ? yesterdayRes.number2 : 'XX';
