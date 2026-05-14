@@ -1080,6 +1080,95 @@ const AdminPanel = () => {
     }
   };
 
+  const handleRevertResult = async (game) => {
+    if (!window.confirm(`Are you SURE you want to REVERT the result for ${game.title}? This will deduct money from users who won and reset all bets to pending!`)) return;
+
+    try {
+      setIsPublishingResult(game.id);
+      
+      // 1. Fetch all bets for this game that are NOT pending
+      const betsRef = collection(db, 'bets');
+      const q = query(
+        betsRef, 
+        where('gameId', '==', game.id), 
+        where('status', 'in', ['win', 'loss'])
+      );
+      const allBetsSnap = await getDocs(q);
+      
+      const winningBets = [];
+      const losingBets = [];
+      
+      allBetsSnap.forEach(d => {
+        const betData = d.data();
+        if (betData.status === 'win') winningBets.push({ id: d.id, ...betData });
+        else if (betData.status === 'loss') losingBets.push(d.id);
+      });
+
+      // 2. Group winning bets by user to deduct safely
+      const winningUsers = {};
+      winningBets.forEach(bet => {
+        if (!winningUsers[bet.uid]) winningUsers[bet.uid] = { totalDeduct: 0, betIds: [] };
+        winningUsers[bet.uid].totalDeduct += bet.wonAmount || 0;
+        winningUsers[bet.uid].betIds.push(bet.id);
+      });
+
+      // 3. Process Revert securely via Transactions
+      for (const [uid, deductData] of Object.entries(winningUsers)) {
+        const userRef = doc(db, 'users', uid);
+        await runTransaction(db, async (transaction) => {
+          const userSnap = await transaction.get(userRef);
+          if (userSnap.exists()) {
+             const currentBal = userSnap.data().wallet_balance || 0;
+             transaction.update(userRef, { wallet_balance: currentBal - deductData.totalDeduct });
+             
+             deductData.betIds.forEach(betId => {
+               const bRef = doc(db, 'bets', betId);
+               transaction.update(bRef, {
+                 status: 'pending',
+                 wonAmount: 0,
+                 winningNumber: null,
+                 settledAt: null
+               });
+             });
+          }
+        });
+      }
+
+      // 4. Mark losing bets back to pending in batches
+      let batch = writeBatch(db);
+      let batchCount = 0;
+      for (const betId of losingBets) {
+        batch.update(doc(db, 'bets', betId), { 
+          status: 'pending', 
+          winningNumber: null, 
+          settledAt: null 
+        });
+        batchCount++;
+        if (batchCount === 500) {
+          await batch.commit();
+          batch = writeBatch(db);
+          batchCount = 0;
+        }
+      }
+      if (batchCount > 0) await batch.commit();
+
+      // 5. Reset the game document
+      await updateDoc(doc(db, 'games', game.id), {
+         status: 'active',
+         number2: 'XX',
+         totalPlaced: 0,
+         totalWon: 0,
+      });
+      
+      alert(`Successfully reverted result for ${game.title}! All bets are pending again.`);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to revert result: ' + err.message);
+    } finally {
+      setIsPublishingResult(false);
+    }
+  };
+
   const handleRollbackResult = async (game) => {
     if (!window.confirm(`⚠️ DANGER: Are you sure you want to Backup/Rollback results for ${game.title}? \n\nThis will deduct ₹${game.totalWon || 0} from winning users and reset all bets to 'Pending'.`)) {
       return;
@@ -1827,7 +1916,16 @@ const AdminPanel = () => {
                             {g.status.toUpperCase()}
                           </span>
                         </td>
-                        <td>
+                        <td style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                          {g.status === 'completed' && (
+                            <button 
+                              onClick={() => handleRevertResult(g)}
+                              style={{background: '#FFF3E0', border: '1px solid #FFB74D', color: '#E65100', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold'}}
+                              disabled={isPublishingResult === g.id}
+                            >
+                              {isPublishingResult === g.id ? 'REVERTING...' : 'REVERT RESULT'}
+                            </button>
+                          )}
                           <button 
                             onClick={async () => {
                               if(window.confirm(`Are you sure you want to delete the game session for ${g.title}?`)) {
