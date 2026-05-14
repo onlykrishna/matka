@@ -933,8 +933,10 @@ const AdminPanel = () => {
     const openMin = parseMinutes(openTimePart);
     const closeMin = parseMinutes(closeTimePart);
 
+    let targetDate = new Date();
     if (createdAt) {
-      targetDate = new Date(createdAt.toDate ? createdAt.toDate() : createdAt);
+      const actualCreated = createdAt.toDate ? createdAt.toDate() : createdAt;
+      targetDate = new Date(actualCreated);
       const [cH, cM] = closeTimePart.split(':').map(Number);
       targetDate.setHours(cH, cM, 0, 0);
 
@@ -943,7 +945,7 @@ const AdminPanel = () => {
       }
 
       // Special case: if the computed targetDate is still earlier than creation, it's definitely next day
-      if (targetDate < createdAt.toDate()) {
+      if (targetDate < actualCreated) {
         targetDate.setDate(targetDate.getDate() + 1);
       }
     } else {
