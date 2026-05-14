@@ -1073,7 +1073,12 @@ const AdminPanel = () => {
       await commitAndReset();
 
       // 4. Update Game Status
-      const resultDateStr = targetDate.toISOString().split('T')[0];
+      // Use local date string to avoid timezone offset issues (e.g. 2:00 AM IST is previous day in UTC)
+      const yr = targetDate.getFullYear();
+      const mo = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const da = String(targetDate.getDate()).padStart(2, '0');
+      const resultDateStr = `${yr}-${mo}-${da}`;
+
       const gameRef = doc(db, "games", gameId);
       await updateDoc(gameRef, {
         number2: num2,
