@@ -1089,6 +1089,29 @@ const AdminPanel = () => {
         officialResultDate: resultDateStr
       });
 
+      // 4b. Propagate result to NEXT session's "Kal" (number1) box
+      try {
+        const idParts = gameId.split('_');
+        if (idParts.length >= 2) {
+          const datePart = idParts[idParts.length - 1]; // YYYY-MM-DD
+          const [y, m, d] = datePart.split('-').map(Number);
+          const nextDateObj = new Date(y, m - 1, d + 1);
+          const yrN = nextDateObj.getFullYear();
+          const moN = String(nextDateObj.getMonth() + 1).padStart(2, '0');
+          const daN = String(nextDateObj.getDate()).padStart(2, '0');
+          const nextDateStr = `${yrN}-${moN}-${daN}`;
+          
+          const nextIdParts = [...idParts];
+          nextIdParts[nextIdParts.length - 1] = nextDateStr;
+          const nextGameId = nextIdParts.join('_');
+          
+          const nextGameRef = doc(db, "games", nextGameId);
+          await updateDoc(nextGameRef, { number1: num2 });
+        }
+      } catch (propErr) {
+        console.warn("Could not propagate result to next session:", propErr);
+      }
+
       // 5. Send Notification to all users
       try {
         await addDoc(collection(db, 'notifications'), {
