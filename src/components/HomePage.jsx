@@ -557,8 +557,23 @@ function HomePage() {
         let rDate = g.resultDate;
         if (!rDate) {
           if (g.created_at?.toDate) {
-            rDate = g.created_at.toDate().toISOString().split('T')[0];
-          } else if (g.id.includes('_')) {
+            let baseDate = new Date(g.created_at.toDate());
+            
+            if (g.openTime && g.closeTime) {
+               const oTime = g.openTime.includes('T') ? g.openTime.split('T')[1].substring(0, 5) : g.openTime;
+               const cTime = g.closeTime.includes('T') ? g.closeTime.split('T')[1].substring(0, 5) : g.closeTime;
+               const [oH, oM] = oTime.split(':').map(Number);
+               const [cH, cM] = cTime.split(':').map(Number);
+               if ((oH * 60 + oM) > (cH * 60 + cM)) {
+                 baseDate.setDate(baseDate.getDate() + 1);
+               }
+            }
+            // Use local date string to avoid timezone offset issues
+            const year = baseDate.getFullYear();
+            const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+            const day = String(baseDate.getDate()).padStart(2, '0');
+            rDate = `${year}-${month}-${day}`;
+          } else if (g.id && g.id.includes('_')) {
             rDate = g.id.split('_').pop();
           }
         }

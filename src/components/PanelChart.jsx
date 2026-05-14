@@ -95,7 +95,23 @@ function PanelChart() {
               }
             } else if (data.created_at && data.created_at.toDate) {
               const gameDate = data.created_at.toDate();
+              
+              if (data.openTime && data.closeTime) {
+                 const oTime = data.openTime.includes('T') ? data.openTime.split('T')[1].substring(0, 5) : data.openTime;
+                 const cTime = data.closeTime.includes('T') ? data.closeTime.split('T')[1].substring(0, 5) : data.closeTime;
+                 const [oH, oM] = oTime.split(':').map(Number);
+                 const [cH, cM] = cTime.split(':').map(Number);
+                 if ((oH * 60 + oM) > (cH * 60 + cM)) {
+                   gameDate.setDate(gameDate.getDate() + 1);
+                 }
+              }
+              
               dateKey = String(gameDate.getDate()).padStart(2, '0');
+            } else if (doc.id && doc.id.includes('_')) {
+              const rStr = doc.id.split('_').pop();
+              if (rStr && rStr.includes('-')) {
+                 dateKey = rStr.split('-').pop();
+              }
             }
             
             if (dateKey) {
