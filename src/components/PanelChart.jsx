@@ -66,47 +66,43 @@ function PanelChart() {
         const year = parseInt(yearStr, 10);
         const monthIndex = parseInt(monthStr, 10) - 1;
 
-        // Fetch with a small buffer to catch midnight-spanning games
-        const startOfQuery = new Date(year, monthIndex, 1);
-        startOfQuery.setDate(startOfQuery.getDate() - 2); 
-        const endOfQuery = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-        endOfQuery.setDate(endOfQuery.getDate() + 2);
+        // Firebase range
+        const startOfMonth = new Date(year, monthIndex, 1);
+        const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
         const gamesRef = collection(db, "games");
         const q = query(
           gamesRef, 
-          where('created_at', '>=', startOfQuery),
-          where('created_at', '<=', endOfQuery)
+          where('created_at', '>=', startOfMonth),
+          where('created_at', '<=', endOfMonth)
         );
 
         const snap = await getDocs(q);
         
+        // Build Lookup: lookup[dateString][marketName] = resultNumber
         const lookup = {};
         
         snap.forEach(doc => {
           const data = doc.data();
           if (data.status === 'completed') {
-            let dayKey = null;
-
-            if (data.officialResultDate) {
-              // YYYY-MM-DD format
-              const [y, m, d] = data.officialResultDate.split('-').map(Number);
-              // Only include if matches selected month
-              if (y === year && m === (monthIndex + 1)) {
-                dayKey = String(d).padStart(2, '0');
+            let dateKey = null;
+            
+            if (data.resultDate) {
+              // format is YYYY-MM-DD
+              const parts = data.resultDate.split('-');
+              if (parts.length === 3) {
+                dateKey = parts[2];
               }
             } else if (data.created_at && data.created_at.toDate) {
               const gameDate = data.created_at.toDate();
-              if (gameDate.getFullYear() === year && gameDate.getMonth() === monthIndex) {
-                dayKey = String(gameDate.getDate()).padStart(2, '0');
-              }
+              dateKey = String(gameDate.getDate()).padStart(2, '0');
             }
-
-            if (dayKey) {
-              if (!lookup[dayKey]) {
-                lookup[dayKey] = {};
+            
+            if (dateKey) {
+              if (!lookup[dateKey]) {
+                lookup[dateKey] = {};
               }
-              lookup[dayKey][data.title] = data.number2;
+              lookup[dateKey][data.title] = data.number2;
             }
           }
         });

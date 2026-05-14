@@ -908,7 +908,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleUpdateResult = async (game, num2, explicitId = null, forcedResultDate = null) => {
+  const handleUpdateResult = async (game, num2, explicitId = null) => {
     if (isPublishingResult) return;
     if (!num2 || (num2.length < 2 || num2.length > 3)) {
       alert("Please enter a valid result (e.g. 05, HOL, XX)");
@@ -934,9 +934,8 @@ const AdminPanel = () => {
     const closeMin = parseMinutes(closeTimePart);
 
     let targetDate = new Date();
-    if (createdAt) {
-      const actualCreated = createdAt.toDate ? createdAt.toDate() : createdAt;
-      targetDate = new Date(actualCreated);
+    if (createdAt && createdAt.toDate) {
+      targetDate = new Date(createdAt.toDate());
       const [cH, cM] = closeTimePart.split(':').map(Number);
       targetDate.setHours(cH, cM, 0, 0);
 
@@ -944,8 +943,7 @@ const AdminPanel = () => {
         targetDate.setDate(targetDate.getDate() + 1);
       }
 
-      // Special case: if the computed targetDate is still earlier than creation, it's definitely next day
-      if (targetDate < actualCreated) {
+      if (targetDate < createdAt.toDate()) {
         targetDate.setDate(targetDate.getDate() + 1);
       }
     } else {
@@ -953,9 +951,8 @@ const AdminPanel = () => {
       targetDate.setHours(cH, cM, 0, 0);
     }
 
-    if (targetDate > now && !forcedResultDate) {
-      const timeRemaining = Math.ceil((targetDate - now) / (1000 * 60));
-      alert(`This game has not ended yet. It is scheduled to close at ${targetDate.toLocaleString()}. \n\nRemaining: ${timeRemaining} minutes.`);
+    if (targetDate > now) {
+      alert("This game has not ended yet. You can only publish the result after the Close Time passes.");
       return;
     }
 
@@ -964,34 +961,17 @@ const AdminPanel = () => {
       const andarStr = num2.charAt(0);
       const baharStr = num2.charAt(1);
 
-      // 1. Fetch all pending bets for this game session
-      const nowForCutoff = new Date();
-      const openStrForCutoff = game.openTime || "00:00";
-      const openTimePartForCutoff = openStrForCutoff.includes('T') ? openStrForCutoff.split('T')[1].substring(0, 5) : openStrForCutoff;
-      const [oH, oM] = openTimePartForCutoff.split(':').map(Number);
-      
-      let sessionCutoff = new Date();
-      sessionCutoff.setHours(oH, oM, 0, 0);
-      
-      if (nowForCutoff < sessionCutoff) {
-        sessionCutoff.setDate(sessionCutoff.getDate() - 1);
-      }
-
-      // Fetch by gameTitle + status only (no composite index needed), filter date in JS
+      // Fetch bets specifically for this game session
       const betsRef = collection(db, 'bets');
       const q = query(
         betsRef, 
-        where('gameTitle', '==', game.title), 
+        where('gameId', '==', gameId), 
         where('status', '==', 'pending')
       );
       const allBetsSnap = await getDocs(q);
       
-      // Filter to current session only in JavaScript
-      const betsSnap = { forEach: (cb) => allBetsSnap.forEach(d => {
-        const t = d.data().createdAt?.toDate?.() ? d.data().createdAt.toDate() :
-                  (d.data().createdAt?.toMillis ? new Date(d.data().createdAt.toMillis()) : null);
-        if (!t || t >= sessionCutoff) cb(d);
-      })};
+      // Use directly
+      const betsSnap = allBetsSnap;
 
       const winningUsers = {}; // uid -> { totalWon: 0, betDocs: [] }
       const losingBets = [];
@@ -1027,111 +1007,51 @@ const AdminPanel = () => {
         }
       });
 
-      // 2. Process ALL Bets and User Balances in batches for "Immediate" settlement
-      let currentBatch = writeBatch(db);
-      let opCount = 0;
-
-      const commitAndReset = async () => {
-        if (opCount > 0) {
-          await currentBatch.commit();
-          currentBatch = writeBatch(db);
-          opCount = 0;
-        }
-      };
-
-      // A. Process Winners (Balance + Bet Status)
+      // 2. Process Winning Users securely via Transactions
       for (const [uid, winData] of Object.entries(winningUsers)) {
         const userRef = doc(db, 'users', uid);
-        currentBatch.update(userRef, { 
-          wallet_balance: increment(winData.totalWon) 
+        await runTransaction(db, async (transaction) => {
+          const userSnap = await transaction.get(userRef);
+          if (userSnap.exists()) {
+             const currentBal = userSnap.data().wallet_balance || 0;
+             transaction.update(userRef, { wallet_balance: currentBal + winData.totalWon });
+             
+             winData.betDocs.forEach(bet => {
+               const bRef = doc(db, 'bets', bet.id);
+               transaction.update(bRef, {
+                 status: 'win',
+                 wonAmount: bet.wonAmount,
+                 winningNumber: num2,
+                 settledAt: serverTimestamp()
+               });
+             });
+          }
         });
-        opCount++;
-        if (opCount >= 500) await commitAndReset();
+      }
 
-        for (const bet of winData.betDocs) {
-          currentBatch.update(doc(db, 'bets', bet.id), {
-            status: 'win',
-            wonAmount: bet.wonAmount,
-            winningNumber: num2,
-            settledAt: serverTimestamp()
-          });
-          opCount++;
-          if (opCount >= 500) await commitAndReset();
+      // 3. Mark losing bets in batches
+      let batch = writeBatch(db);
+      let batchCount = 0;
+      for (const betId of losingBets) {
+        batch.update(doc(db, 'bets', betId), { status: 'loss', winningNumber: num2, settledAt: serverTimestamp() });
+        batchCount++;
+        if (batchCount === 500) {
+          await batch.commit();
+          batch = writeBatch(db);
+          batchCount = 0;
         }
       }
-
-      // B. Process Losers
-      for (const betId of losingBets) {
-        currentBatch.update(doc(db, 'bets', betId), {
-          status: 'loss',
-          winningNumber: num2,
-          settledAt: serverTimestamp()
-        });
-        opCount++;
-        if (opCount >= 500) await commitAndReset();
-      }
-
-      await commitAndReset();
+      if (batchCount > 0) await batch.commit();
 
       // 4. Update Game Status
-      // Use local date string to avoid timezone offset issues (e.g. 2:00 AM IST is previous day in UTC)
-      const yr = targetDate.getFullYear();
-      const mo = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const da = String(targetDate.getDate()).padStart(2, '0');
-      const resultDateStr = forcedResultDate || `${yr}-${mo}-${da}`;
-
       const gameRef = doc(db, "games", gameId);
-      
-      const existingDoc = await getDoc(gameRef);
-      if (existingDoc.exists()) {
-        await updateDoc(gameRef, {
-          number2: num2,
-          status: 'completed',
-          totalPlaced: gameTotalPlaced,
-          totalWon: gameTotalWon,
-          result_published_at: serverTimestamp(),
-          officialResultDate: resultDateStr,
-          isBackfilled: !!forcedResultDate
-        });
-      } else {
-        await setDoc(gameRef, {
-          title: game.title,
-          openTime: game.openTime,
-          closeTime: game.closeTime,
-          number1: 'XX',
-          number2: num2,
-          status: 'completed',
-          created_at: game.created_at || serverTimestamp(),
-          totalPlaced: gameTotalPlaced,
-          totalWon: gameTotalWon,
-          result_published_at: serverTimestamp(),
-          officialResultDate: resultDateStr,
-          isBackfilled: !!forcedResultDate
-        });
-      }
-
-      // 4b. Propagate result to NEXT session's "Kal" (number1) box
-      try {
-        const idParts = gameId.split('_');
-        if (idParts.length >= 2) {
-          const datePart = idParts[idParts.length - 1]; // YYYY-MM-DD
-          const [y, m, d] = datePart.split('-').map(Number);
-          const nextDateObj = new Date(y, m - 1, d + 1);
-          const yrN = nextDateObj.getFullYear();
-          const moN = String(nextDateObj.getMonth() + 1).padStart(2, '0');
-          const daN = String(nextDateObj.getDate()).padStart(2, '0');
-          const nextDateStr = `${yrN}-${moN}-${daN}`;
-          
-          const nextIdParts = [...idParts];
-          nextIdParts[nextIdParts.length - 1] = nextDateStr;
-          const nextGameId = nextIdParts.join('_');
-          
-          const nextGameRef = doc(db, "games", nextGameId);
-          await updateDoc(nextGameRef, { number1: num2 });
-        }
-      } catch (propErr) {
-        console.warn("Could not propagate result to next session:", propErr);
-      }
+      await updateDoc(gameRef, {
+        number2: num2,
+        status: 'completed',
+        totalPlaced: gameTotalPlaced,
+        totalWon: gameTotalWon,
+        result_published_at: serverTimestamp()
+      });
 
       // 5. Send Notification to all users
       try {
@@ -1872,6 +1792,7 @@ const AdminPanel = () => {
                     <tr>
                       <th>Title</th>
                       <th>Timings</th>
+                      <th>Result Date</th>
                       <th>Status</th>
                       <th>Action</th>
                     </tr>
@@ -1880,11 +1801,15 @@ const AdminPanel = () => {
                     {games.filter(g => {
                        const today = new Date().toISOString().split('T')[0];
                        const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
-                       return gameDate === today;
+                       const rDate = g.resultDate || gameDate;
+                       return rDate === today || gameDate === today;
                     }).map((g) => (
                       <tr key={g.id}>
                         <td><strong>{g.title}</strong></td>
                         <td>{g.openTime} - {g.closeTime}</td>
+                        <td>
+                          <span style={{color: '#D32F2F', fontWeight: 'bold'}}>{g.resultDate || 'Legacy'}</span>
+                        </td>
                         <td>
                           <span style={{
                             padding: '4px 10px', 
@@ -1915,9 +1840,10 @@ const AdminPanel = () => {
                     {games.filter(g => {
                        const today = new Date().toISOString().split('T')[0];
                        const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
-                       return gameDate === today;
+                       const rDate = g.resultDate || gameDate;
+                       return rDate === today || gameDate === today;
                     }).length === 0 && (
-                       <tr><td colSpan="4" style={{textAlign: 'center', padding: '20px', color: '#999'}}>No game sessions found for today.</td></tr>
+                       <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#999'}}>No game sessions found for today.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1937,68 +1863,60 @@ const AdminPanel = () => {
                 if (!resTitle || !resDate || !resNum) return;
                 
                 const safeTitle = resTitle.replace(/[^a-zA-Z0-9]/g, '_');
-                
+                setIsPublishingResult(true); // Using boolean or string, but true works here.
+
                 try {
-                  // Find the session that CLOSES on resDate.
-                  // For a game created on Day X, it closes on Day X (if open < close) or Day X+1 (if open > close).
-                  const idToday = `${safeTitle}_${resDate}`;
-                  const prevDate = new Date(new Date(resDate).getTime() - 86400000);
-                  const idYesterday = `${safeTitle}_${prevDate.toISOString().split('T')[0]}`;
-                  
-                  let finalSnap = null;
-                  let finalId = null;
+                  // Find the game by resultDate
+                  const q = query(
+                    collection(db, "games"),
+                    where("title", "==", resTitle),
+                    where("resultDate", "==", resDate)
+                  );
+                  const qSnap = await getDocs(q);
 
-                  const checkClosing = (data) => {
-                    const oStr = data.openTime;
-                    const cStr = data.closeTime;
-                    const oTime = oStr.includes('T') ? oStr.split('T')[1].substring(0, 5) : oStr;
-                    const cTime = cStr.includes('T') ? cStr.split('T')[1].substring(0, 5) : cStr;
-                    const [oH, oM] = oTime.split(':').map(Number);
-                    const [cH, cM] = cTime.split(':').map(Number);
-                    const oMin = oH * 60 + oM;
-                    const cMin = cH * 60 + cM;
-                    
-                    let cDay = new Date(data.created_at.toDate());
-                    if (oMin > cMin) cDay.setDate(cDay.getDate() + 1);
-                    return cDay.toISOString().split('T')[0];
-                  };
+                  let targetGameSnap = null;
+                  let targetGameId = null;
 
-                  const snapT = await getDoc(doc(db, "games", idToday));
-                  const snapY = await getDoc(doc(db, "games", idYesterday));
-
-                  if (snapT.exists() && checkClosing(snapT.data()) === resDate) {
-                    finalSnap = snapT;
-                    finalId = idToday;
-                  } else if (snapY.exists() && checkClosing(snapY.data()) === resDate) {
-                    finalSnap = snapY;
-                    finalId = idYesterday;
+                  if (!qSnap.empty) {
+                    targetGameSnap = qSnap.docs[0];
+                    targetGameId = targetGameSnap.id;
+                  } else {
+                    // Legacy fallback
+                    const legacyId = `${safeTitle}_${resDate}`;
+                    const legacyRef = doc(db, "games", legacyId);
+                    const lSnap = await getDoc(legacyRef);
+                    if (lSnap.exists()) {
+                      targetGameSnap = lSnap;
+                      targetGameId = legacyId;
+                    }
                   }
 
-                  if (finalSnap) {
-                    setIsPublishingResult(finalId);
-                    await handleUpdateResult(finalSnap.data(), resNum, finalId, resDate);
+                  if (targetGameSnap) {
+                    // Standard Logic: Settle Bets & Update
+                    await handleUpdateResult(targetGameSnap.data(), resNum, targetGameId);
                   } else {
-                    // Backfill Logic: Use handleUpdateResult to ensure bets are settled even for manual entries
+                    // Backfill Logic: Create new doc for chart
                     const market = markets.find(m => m.title === resTitle);
                     if (!market) {
                       alert("Error: Market template not found for this game. Please check Market Settings.");
                       return;
                     }
 
-                    // Use idYesterday if idToday is occupied, to avoid clashes
-                    const backfillId = snapT.exists() ? idYesterday : idToday;
-                    
-                    const fakeGame = {
-                      id: backfillId,
+                    const newGameId = `${safeTitle}_${resDate}_backfill`;
+                    const gameRef = doc(db, "games", newGameId);
+                    await setDoc(gameRef, {
                       title: resTitle,
                       openTime: market.openTime,
                       closeTime: market.closeTime,
-                      created_at: new Date(resDate + 'T00:00:00')
-                    };
-
-                    setIsPublishingResult(backfillId);
-                    await handleUpdateResult(fakeGame, resNum, backfillId, resDate);
-                    setResSuccess(`Historical result for ${resTitle} (${resDate}) published and bets settled!`);
+                      number1: 'XX',
+                      number2: resNum,
+                      status: 'completed',
+                      created_at: new Date(resDate + 'T12:00:00'),
+                      isBackfilled: true,
+                      resultDate: resDate,
+                      result_published_at: serverTimestamp()
+                    });
+                    setResSuccess(`Historical result for ${resTitle} (${resDate}) added to chart!`);
                   }
                   
                   setResNum('');
