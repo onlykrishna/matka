@@ -1957,26 +1957,43 @@ const AdminPanel = () => {
                     setIsPublishingResult(finalId);
                     await handleUpdateResult(finalSnap.data(), resNum, finalId);
                   } else {
-                    // Backfill Logic: Create new doc for chart
+                    // Backfill Logic: Create/update doc for chart
                     const market = markets.find(m => m.title === resTitle);
                     if (!market) {
                       alert("Error: Market template not found for this game. Please check Market Settings.");
                       return;
                     }
 
-                    const gameRef = doc(db, "games", idToday);
-                    await setDoc(gameRef, {
-                      title: resTitle,
-                      openTime: market.openTime,
-                      closeTime: market.closeTime,
-                      number1: 'XX',
-                      number2: resNum,
-                      status: 'completed',
-                      created_at: new Date(resDate + 'T12:00:00'),
-                      isBackfilled: true,
-                      result_published_at: serverTimestamp(),
-                      officialResultDate: resDate
-                    });
+                    // CRITICAL FIX: If idToday already exists (e.g. midnight game occupying that slot),
+                    // use idYesterday to avoid overwriting the existing session's published result.
+                    const backfillId = snapT.exists() ? idYesterday : idToday;
+                    const gameRef = doc(db, "games", backfillId);
+                    
+                    const existingDoc = await getDoc(gameRef);
+                    if (existingDoc.exists()) {
+                      // Doc exists (maybe auto-created) — just update the result fields safely
+                      await updateDoc(gameRef, {
+                        number2: resNum,
+                        status: 'completed',
+                        result_published_at: serverTimestamp(),
+                        officialResultDate: resDate,
+                        isBackfilled: true
+                      });
+                    } else {
+                      // Brand new document — create it
+                      await setDoc(gameRef, {
+                        title: resTitle,
+                        openTime: market.openTime,
+                        closeTime: market.closeTime,
+                        number1: 'XX',
+                        number2: resNum,
+                        status: 'completed',
+                        created_at: new Date(resDate + 'T12:00:00'),
+                        isBackfilled: true,
+                        result_published_at: serverTimestamp(),
+                        officialResultDate: resDate
+                      });
+                    }
                     setResSuccess(`Historical result for ${resTitle} (${resDate}) added to chart!`);
                   }
                   
