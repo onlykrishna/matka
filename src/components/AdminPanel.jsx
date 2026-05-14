@@ -943,6 +943,7 @@ const AdminPanel = () => {
         targetDate.setDate(targetDate.getDate() + 1);
       }
 
+      // Special case: if the computed targetDate is still earlier than creation, it's definitely next day
       if (targetDate < createdAt.toDate()) {
         targetDate.setDate(targetDate.getDate() + 1);
       }
@@ -952,7 +953,8 @@ const AdminPanel = () => {
     }
 
     if (targetDate > now) {
-      alert("This game has not ended yet. You can only publish the result after the Close Time passes.");
+      const timeRemaining = Math.ceil((targetDate - now) / (1000 * 60));
+      alert(`This game has not ended yet. It is scheduled to close at ${targetDate.toLocaleString()}. \n\nRemaining: ${timeRemaining} minutes.`);
       return;
     }
 
@@ -1886,16 +1888,46 @@ const AdminPanel = () => {
                 if (!resTitle || !resDate || !resNum) return;
                 
                 const safeTitle = resTitle.replace(/[^a-zA-Z0-9]/g, '_');
-                const gameId = `${safeTitle}_${resDate}`;
-                setIsPublishingResult(gameId);
-
+                
                 try {
-                  const gameRef = doc(db, "games", gameId);
-                  const gameSnap = await getDoc(gameRef);
+                  // Find the session that CLOSES on resDate.
+                  // For a game created on Day X, it closes on Day X (if open < close) or Day X+1 (if open > close).
+                  const idToday = `${safeTitle}_${resDate}`;
+                  const prevDate = new Date(new Date(resDate).getTime() - 86400000);
+                  const idYesterday = `${safeTitle}_${prevDate.toISOString().split('T')[0]}`;
+                  
+                  let finalSnap = null;
+                  let finalId = null;
 
-                  if (gameSnap.exists()) {
-                    // Standard Logic: Settle Bets & Update
-                    await handleUpdateResult(gameSnap.data(), resNum, gameId);
+                  const checkClosing = (data) => {
+                    const oStr = data.openTime;
+                    const cStr = data.closeTime;
+                    const oTime = oStr.includes('T') ? oStr.split('T')[1].substring(0, 5) : oStr;
+                    const cTime = cStr.includes('T') ? cStr.split('T')[1].substring(0, 5) : cStr;
+                    const [oH, oM] = oTime.split(':').map(Number);
+                    const [cH, cM] = cTime.split(':').map(Number);
+                    const oMin = oH * 60 + oM;
+                    const cMin = cH * 60 + cM;
+                    
+                    let cDay = new Date(data.created_at.toDate());
+                    if (oMin > cMin) cDay.setDate(cDay.getDate() + 1);
+                    return cDay.toISOString().split('T')[0];
+                  };
+
+                  const snapT = await getDoc(doc(db, "games", idToday));
+                  const snapY = await getDoc(doc(db, "games", idYesterday));
+
+                  if (snapT.exists() && checkClosing(snapT.data()) === resDate) {
+                    finalSnap = snapT;
+                    finalId = idToday;
+                  } else if (snapY.exists() && checkClosing(snapY.data()) === resDate) {
+                    finalSnap = snapY;
+                    finalId = idYesterday;
+                  }
+
+                  if (finalSnap) {
+                    setIsPublishingResult(finalId);
+                    await handleUpdateResult(finalSnap.data(), resNum, finalId);
                   } else {
                     // Backfill Logic: Create new doc for chart
                     const market = markets.find(m => m.title === resTitle);
