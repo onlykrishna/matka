@@ -933,9 +933,8 @@ const AdminPanel = () => {
     const openMin = parseMinutes(openTimePart);
     const closeMin = parseMinutes(closeTimePart);
 
-    let targetDate = new Date();
-    if (createdAt && createdAt.toDate) {
-      targetDate = new Date(createdAt.toDate());
+    if (createdAt) {
+      targetDate = new Date(createdAt.toDate ? createdAt.toDate() : createdAt);
       const [cH, cM] = closeTimePart.split(':').map(Number);
       targetDate.setHours(cH, cM, 0, 0);
 
@@ -1992,7 +1991,7 @@ const AdminPanel = () => {
                       title: resTitle,
                       openTime: market.openTime,
                       closeTime: market.closeTime,
-                      created_at: { toDate: () => new Date(resDate + 'T00:00:00') }
+                      created_at: new Date(resDate + 'T00:00:00')
                     };
 
                     setIsPublishingResult(backfillId);
