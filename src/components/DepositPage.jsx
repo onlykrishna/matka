@@ -159,18 +159,22 @@ const DepositPage = () => {
             await runTransaction(db, async (transaction) => {
               const depositRef = doc(db, "deposits", txnIdKey);
               const depSnap = await transaction.get(depositRef);
-              // Only process if it is strictly 'pending' to avoid double-credit
-              if (!depSnap.exists() || depSnap.data().status === 'approved') return;
+              // If it already exists, the webhook (or a previous poll) already processed it!
+              if (depSnap.exists()) return;
 
               const userRef = doc(db, "users", user.uid);
               const userSnap = await transaction.get(userRef);
               if (!userSnap.exists()) return;
 
               transaction.update(userRef, { wallet_balance: (userSnap.data().wallet_balance || 0) + actualAmount });
-              transaction.update(depositRef, {
+              transaction.set(depositRef, {
+                userId: user.uid,
                 amount: actualAmount,
+                method: pollingGateway === 'IMB' ? 'IMB Gateway' : 'UPI Gateway',
                 status: 'approved',
                 gatewayOrderId: gatewayOrderId,
+                txnId: txnIdKey,
+                created_at: serverTimestamp(),
                 note: 'Verified via Active Background Polling'
               });
             });
@@ -238,16 +242,7 @@ const DepositPage = () => {
         const createUrl = settings.upi_gateway_url || 'https://merchant.upigateway.com/api/create_order';
         const client_txn_id = `txn_${Date.now()}`;
 
-        // Create pending request BEFORE opening gateway
-        await setDoc(doc(db, "deposits", client_txn_id), {
-          userId: user.uid,
-          amount: amt,
-          method: 'UPI Gateway',
-          status: 'pending',
-          txnId: client_txn_id,
-          created_at: serverTimestamp(),
-          note: 'Created before redirect'
-        });
+
         const payload = {
           key: settings.upi_gateway_id || 'c2ce65c8-e370-466e-9978-643698cf44f3',
           client_txn_id: client_txn_id,
@@ -303,17 +298,7 @@ const DepositPage = () => {
         const order_id = `IMB_${Date.now()}`;
         const txnIdKey = `IMB_WH_${order_id}`;
 
-        // Create pending request BEFORE opening gateway
-        await setDoc(doc(db, "deposits", txnIdKey), {
-          userId: user.uid,
-          amount: amt,
-          method: 'IMB Gateway',
-          status: 'pending',
-          txnId: txnIdKey,
-          gatewayOrderId: order_id,
-          created_at: serverTimestamp(),
-          note: 'Created before redirect'
-        });
+
         const payload = {
           customer_mobile: userData.phone || '9999999999',
           user_token: settings.imb_access_token || '61559044c37f7e99485353c294cd74eb',
