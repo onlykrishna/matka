@@ -934,25 +934,30 @@ const AdminPanel = () => {
     const closeMin = parseMinutes(closeTimePart);
 
     let targetDate = new Date();
-    if (createdAt && createdAt.toDate) {
-      targetDate = new Date(createdAt.toDate());
-      const [cH, cM] = closeTimePart.split(':').map(Number);
-      targetDate.setHours(cH, cM, 0, 0);
-
-      if (openMin > closeMin) {
-        targetDate.setDate(targetDate.getDate() + 1);
-      }
-
-      if (targetDate < createdAt.toDate()) {
-        targetDate.setDate(targetDate.getDate() + 1);
-      }
+    if (game.resultDate) {
+      targetDate = new Date(game.resultDate + 'T' + closeTimePart + ':00');
     } else {
-      const [cH, cM] = closeTimePart.split(':').map(Number);
-      targetDate.setHours(cH, cM, 0, 0);
+      // Fallback for legacy games
+      if (createdAt && createdAt.toDate) {
+        targetDate = new Date(createdAt.toDate());
+        const [cH, cM] = closeTimePart.split(':').map(Number);
+        targetDate.setHours(cH, cM, 0, 0);
+
+        if (openMin > closeMin) {
+          targetDate.setDate(targetDate.getDate() + 1);
+        }
+
+        if (targetDate < createdAt.toDate()) {
+          targetDate.setDate(targetDate.getDate() + 1);
+        }
+      } else {
+        const [cH, cM] = closeTimePart.split(':').map(Number);
+        targetDate.setHours(cH, cM, 0, 0);
+      }
     }
 
     if (targetDate > now) {
-      alert("This game has not ended yet. You can only publish the result after the Close Time passes.");
+      alert(`This game has not ended yet. Close time is ${targetDate.toLocaleString()}. You can only publish the result after this time passes.`);
       return;
     }
 
