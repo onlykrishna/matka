@@ -1941,6 +1941,7 @@ const AdminPanel = () => {
                       return;
                     }
 
+                    const gameRef = doc(db, "games", idToday);
                     await setDoc(gameRef, {
                       title: resTitle,
                       openTime: market.openTime,
