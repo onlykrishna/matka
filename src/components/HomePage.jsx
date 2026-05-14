@@ -497,12 +497,18 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Calculate Day Strings
+      // Calculate Day Strings using local time to avoid UTC shift issues
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yr = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const da = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${yr}-${mo}-${da}`;
+      
+      const yesterday = new Date(now.getTime() - 86400000);
+      const yrY = yesterday.getFullYear();
+      const moY = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const daY = String(yesterday.getDate()).padStart(2, '0');
+      const yesterdayStr = `${yrY}-${moY}-${daY}`;
 
       // Custom weight-based sorting sequence
       const customOrder = {
@@ -555,13 +561,34 @@ function HomePage() {
 
       const finalGames = Object.keys(marketGroups).map(title => {
         const group = marketGroups[title];
-        const displayGame = { ...group.latest };
         
-        // AUTHENTIC NUMBERS:
-        // number1 = Yesterday's number2
-        // number2 = Today's number2
-        displayGame.number1 = group.yesterday?.number2 || group.latest?.number1 || 'XX';
-        displayGame.number2 = group.today?.number2 || 'XX';
+        // Find all sessions for this specific market title
+        const sessions = allGames.filter(g => (g.title || '').toUpperCase().trim() === title);
+        // Sort sessions by creation time descending (latest first)
+        sessions.sort((a, b) => {
+          const tA = a.created_at?.toMillis?.() || 0;
+          const tB = b.created_at?.toMillis?.() || 0;
+          return tB - tA;
+        });
+
+        const openSession = sessions.find(s => s.status === 'open');
+        const completedSessions = sessions.filter(s => s.status === 'completed');
+        
+        const displayGame = openSession ? { ...openSession } : (completedSessions[0] ? { ...completedSessions[0] } : { ...group.latest });
+
+        if (openSession) {
+          // If a session is currently OPEN, it is the active "Today's" game.
+          // Kal = Result of the most recent completed session.
+          // Aaj = XX (waiting for result).
+          displayGame.number1 = completedSessions[0]?.number2 || 'XX';
+          displayGame.number2 = 'XX';
+        } else {
+          // If no session is OPEN, we show the two most recent results.
+          // Aaj = Most recent completed result.
+          // Kal = Second most recent completed result.
+          displayGame.number2 = completedSessions[0]?.number2 || 'XX';
+          displayGame.number1 = completedSessions[1]?.number2 || 'XX';
+        }
 
         return displayGame;
       });
