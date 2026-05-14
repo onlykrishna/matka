@@ -497,7 +497,7 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Get local date strings (YYYY-MM-DD)
+      // 1. Get Local Date Strings (YYYY-MM-DD)
       const now = new Date();
       const yr = now.getFullYear();
       const mo = String(now.getMonth() + 1).padStart(2, '0');
@@ -510,7 +510,7 @@ function HomePage() {
       const daY = String(yesterday.getDate()).padStart(2, '0');
       const yesterdayStr = `${yrY}-${moY}-${daY}`;
 
-      // Group games by title
+      // 2. Group games by title
       const marketGroups = {};
       allGames.forEach(g => {
         const title = (g.title || '').toUpperCase().trim();
@@ -521,27 +521,17 @@ function HomePage() {
         marketGroups[title].push(g);
       });
 
+      // 3. Simple Box Logic: strictly Yesterday (13th) and Today (14th)
       const finalGames = Object.keys(marketGroups).map(title => {
         const sessions = marketGroups[title];
         
-        // Find the "Current" active session for display (button state, etc.)
+        // Find the "Current" active or latest session for general display
         const openSession = sessions.find(s => s.status === 'open');
         const displayGame = { ...(openSession || sessions[0]) };
 
-        // ROBUST CALENDAR LOGIC:
-        // Aaj (Today) = Game officially dated TODAY
-        // Kal (Yesterday) = Game officially dated YESTERDAY (fallback to latest previous)
+        // STRIKT DATE MATCHING (Matches Chart)
         const todayRes = sessions.find(s => s.officialResultDate === todayStr && s.status === 'completed');
-        
-        let yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
-        
-        // Fallback for Kal: If no exact match for yesterday, take the latest completed game that isn't today's
-        if (!yesterdayRes) {
-          const completedOthers = sessions.filter(s => s.status === 'completed' && s.officialResultDate !== todayStr);
-          if (completedOthers.length > 0) {
-            yesterdayRes = completedOthers[0]; // sessions is sorted desc by created_at
-          }
-        }
+        const yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
 
         displayGame.number2 = todayRes ? todayRes.number2 : 'XX';
         displayGame.number1 = yesterdayRes ? yesterdayRes.number2 : 'XX';
