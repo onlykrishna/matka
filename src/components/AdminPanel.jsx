@@ -1886,10 +1886,28 @@ const AdminPanel = () => {
                     targetGameSnap = qSnap.docs[0];
                     targetGameId = targetGameSnap.id;
                   } else {
-                    // Legacy fallback
-                    const legacyId = `${safeTitle}_${resDate}`;
+                    // Legacy fallback: determine creation date based on market timings
+                    const market = markets.find(m => m.title === resTitle);
+                    let legacyDateStr = resDate;
+                    
+                    if (market) {
+                      const parseMin = (t) => {
+                         if(!t) return 0;
+                         const [h,m] = t.split(':').map(Number);
+                         return h*60+m;
+                      };
+                      if (parseMin(market.openTime) > parseMin(market.closeTime)) {
+                        // Crosses midnight: creation date was 1 day before result date
+                        const d = new Date(resDate + 'T12:00:00');
+                        d.setDate(d.getDate() - 1);
+                        legacyDateStr = d.toISOString().split('T')[0];
+                      }
+                    }
+
+                    const legacyId = `${safeTitle}_${legacyDateStr}`;
                     const legacyRef = doc(db, "games", legacyId);
                     const lSnap = await getDoc(legacyRef);
+                    
                     if (lSnap.exists()) {
                       targetGameSnap = lSnap;
                       targetGameId = legacyId;
