@@ -497,11 +497,18 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Get local boundaries for Today and Yesterday
+      // Get local date strings (YYYY-MM-DD)
       const now = new Date();
+      const yr = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const da = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${yr}-${mo}-${da}`;
       
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const yesterdayStart = todayStart - 86400000;
+      const yesterday = new Date(now.getTime() - 86400000);
+      const yrY = yesterday.getFullYear();
+      const moY = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const daY = String(yesterday.getDate()).padStart(2, '0');
+      const yesterdayStr = `${yrY}-${moY}-${daY}`;
 
       // Group games by title
       const marketGroups = {};
@@ -521,20 +528,20 @@ function HomePage() {
         const openSession = sessions.find(s => s.status === 'open');
         const displayGame = { ...(openSession || sessions[0]) };
 
-        // SIMPLE PUBLICATION-BASED LOGIC:
-        // Aaj (Today) = Any result published today
-        // Kal (Yesterday) = Any result published yesterday
-        const todayRes = sessions.find(s => {
-          if (s.status !== 'completed' || !s.result_published_at) return false;
-          const pubTime = s.result_published_at.toMillis ? s.result_published_at.toMillis() : 0;
-          return pubTime >= todayStart;
-        });
-
-        const yesterdayRes = sessions.find(s => {
-          if (s.status !== 'completed' || !s.result_published_at) return false;
-          const pubTime = s.result_published_at.toMillis ? s.result_published_at.toMillis() : 0;
-          return pubTime >= yesterdayStart && pubTime < todayStart;
-        });
+        // ROBUST CALENDAR LOGIC:
+        // Aaj (Today) = Game officially dated TODAY
+        // Kal (Yesterday) = Game officially dated YESTERDAY (fallback to latest previous)
+        const todayRes = sessions.find(s => s.officialResultDate === todayStr && s.status === 'completed');
+        
+        let yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
+        
+        // Fallback for Kal: If no exact match for yesterday, take the latest completed game that isn't today's
+        if (!yesterdayRes) {
+          const completedOthers = sessions.filter(s => s.status === 'completed' && s.officialResultDate !== todayStr);
+          if (completedOthers.length > 0) {
+            yesterdayRes = completedOthers[0]; // sessions is sorted desc by created_at
+          }
+        }
 
         displayGame.number2 = todayRes ? todayRes.number2 : 'XX';
         displayGame.number1 = yesterdayRes ? yesterdayRes.number2 : 'XX';
