@@ -529,17 +529,17 @@ function HomePage() {
         const openSession = sessions.find(s => s.status === 'open');
         const displayGame = { ...(openSession || sessions[0]) };
 
-        // Helper to get date from a game doc
+        // Helper: Get canonical date from a game doc
+        // IMPORTANT: Never use created_at - it changes when docs are updated.
+        // Only trust officialResultDate or the doc ID which are static.
         const getGDate = (g) => {
+          // Priority 1: Explicit official date field
           if (g.officialResultDate) return g.officialResultDate;
-          if (g.id.includes('_')) {
+          // Priority 2: Extract from document ID (e.g. "GALI_2026-05-13" → "2026-05-13")
+          if (g.id && g.id.includes('_')) {
             const parts = g.id.split('_');
-            const dStr = parts[parts.length - 1]; // "YYYY-MM-DD"
+            const dStr = parts[parts.length - 1];
             if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return dStr;
-          }
-          if (g.created_at?.toDate) {
-            const d = g.created_at.toDate();
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           }
           return '';
         };
