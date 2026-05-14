@@ -497,123 +497,72 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Calculate Day Strings
+      // Get local date strings (YYYY-MM-DD)
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yr = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const da = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${yr}-${mo}-${da}`;
+      
+      const yesterday = new Date(now.getTime() - 86400000);
+      const yrY = yesterday.getFullYear();
+      const moY = String(yesterday.getMonth() + 1).padStart(2, '0');
+      const daY = String(yesterday.getDate()).padStart(2, '0');
+      const yesterdayStr = `${yrY}-${moY}-${daY}`;
 
-      // Custom weight-based sorting sequence
-      const customOrder = {
-        'SADAR BAJAR': 1,
-        'GWALIOR': 2,
-        'DELHI BAZAAR': 3,
-        'DELHI BAZAR': 3,
-        'TAJ': 4,
-        'DELHI NOON': 5,
-        'INDIA BAZAAR': 6,
-        'SHREE GANESH': 7,
-        'FARIDABAD': 8,
-        'NEW FARIDABAD': 9,
-        'GHAZIABAD': 10,
-        'GALI': 11,
-        'DISAWAR': 12,
-        'RANCHI': 13
-      };
-
-      const rank = { 'PLAY NOW': 1, 'COMING UP': 2, 'TIME OUT': 3 };
-
-      // UI Logic: Group by title, then for each title determine number1 (Yesterday) and number2 (Today)
+      // Group games by title
       const marketGroups = {};
       allGames.forEach(g => {
         const title = (g.title || '').toUpperCase().trim();
         if (!title || title === 'SADAR BAZAR') return;
-        
-        // Only show games that exist in active game_markets (instantly hide deleted games)
         if (activeMarketTitles && !activeMarketTitles.has(title)) return;
         
-        if (!marketGroups[title]) marketGroups[title] = {};
-        
-        // Extract date from created_at or ID
-        let gDate = '';
-        if (g.created_at?.toDate) {
-          gDate = g.created_at.toDate().toISOString().split('T')[0];
-        } else if (g.id.includes('_')) {
-          gDate = g.id.split('_').pop();
-        }
-
-        // Capture absolute latest (first one seen since allGames is sorted desc)
-        if (!marketGroups[title].latest) {
-           marketGroups[title].latest = g;
-        }
-
-        // Capture specific today and yesterday entries for number resolution
-        if (gDate === todayStr && !marketGroups[title].today) marketGroups[title].today = g;
-        if (gDate === yesterdayStr && !marketGroups[title].yesterday) marketGroups[title].yesterday = g;
+        if (!marketGroups[title]) marketGroups[title] = [];
+        marketGroups[title].push(g);
       });
 
       const finalGames = Object.keys(marketGroups).map(title => {
-        const group = marketGroups[title];
-        const displayGame = { ...group.latest };
+        const sessions = marketGroups[title];
         
-        // AUTHENTIC NUMBERS:
-        // number1 = Yesterday's number2
-        // number2 = Today's number2
-        displayGame.number1 = group.yesterday?.number2 || group.latest?.number1 || 'XX';
-        displayGame.number2 = group.today?.number2 || 'XX';
+        // Find the "Current" active session for display (button state, etc.)
+        const openSession = sessions.find(s => s.status === 'open');
+        const displayGame = { ...(openSession || sessions[0]) };
+
+        // SIMPLE BOX LOGIC:
+        // Aaj (Today) = Game that officially resulted TODAY
+        // Kal (Yesterday) = Game that officially resulted YESTERDAY
+        const todayRes = sessions.find(s => s.officialResultDate === todayStr && s.status === 'completed');
+        const yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
+
+        displayGame.number2 = todayRes ? todayRes.number2 : 'XX';
+        displayGame.number1 = yesterdayRes ? yesterdayRes.number2 : 'XX';
 
         return displayGame;
       });
 
-      // Find the latest result among all games
-      const gamesWithResults = allGames.filter(g => g.number2 && g.number2 !== 'XX' && (g.title || '').toUpperCase().trim() !== 'SADAR BAZAR');
+      // Sort according to custom sequence
+      const customOrder = {
+        'SADAR BAJAR': 1, 'GWALIOR': 2, 'DELHI BAZAAR': 3, 'TAJ': 4, 'DELHI NOON': 5,
+        'INDIA BAZAAR': 6, 'SHREE GANESH': 7, 'FARIDABAD': 8, 'NEW FARIDABAD': 9,
+        'GHAZIABAD': 10, 'GALI': 11, 'DISAWAR': 12, 'RANCHI': 13
+      };
+      
+      finalGames.sort((a, b) => {
+        const orderA = customOrder[a.title?.toUpperCase().trim()] || 99;
+        const orderB = customOrder[b.title?.toUpperCase().trim()] || 99;
+        return orderA - orderB;
+      });
+
+      setGames(finalGames);
+
+      // Latest Result Marquee Logic (Keep most recently published at top)
+      const gamesWithResults = allGames.filter(g => g.status === 'completed' && g.number2 && g.number2 !== 'XX' && (g.title || '').toUpperCase().trim() !== 'SADAR BAZAR');
       gamesWithResults.sort((a, b) => {
-        // Primary Sort: result_published_at (Most recent publish first)
         const pubA = a.result_published_at?.toMillis?.() || 0;
         const pubB = b.result_published_at?.toMillis?.() || 0;
-        if (pubA !== pubB) return pubB - pubA;
-
-        // Fallback 1: created_at (Date)
-        const d1 = (a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || Date.now())).toISOString().split('T')[0];
-        const d2 = (b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || Date.now())).toISOString().split('T')[0];
-        if (d1 !== d2) return d2.localeCompare(d1);
-
-        // Fallback 2: closeTime (String time)
-        return (b.closeTime || '').localeCompare(a.closeTime || '');
+        return pubB - pubA;
       });
       setLatestResult(gamesWithResults[0] || null);
-
-      const getDayWeight = (createdAt) => {
-        if (!createdAt) return 2;
-        const d = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-        const isSameDay = (d1Str, d2Str) => d1Str === d2Str;
-
-        const dStr = d.toISOString().split('T')[0];
-        if (isSameDay(dStr, todayStr)) return 0;
-        if (isSameDay(dStr, yesterdayStr)) return 1;
-        return 2;
-      };
-
-      finalGames.sort((a, b) => {
-        const dayA = getDayWeight(a.created_at);
-        const dayB = getDayWeight(b.created_at);
-        if (dayA !== dayB) return dayA - dayB;
-
-        const stateA = getGameButtonState(a.openTime, a.closeTime, a.created_at).text;
-        const stateB = getGameButtonState(b.openTime, b.closeTime, b.created_at).text;
-        const rankDiff = (rank[stateA] || 4) - (rank[stateB] || 4);
-        if (rankDiff !== 0) return rankDiff;
-
-        const titleA = a.title?.toUpperCase() || '';
-        const titleB = b.title?.toUpperCase() || '';
-        const weightA = customOrder[titleA] || 999;
-        const weightB = customOrder[titleB] || 999;
-        if (weightA !== weightB) return weightA - weightB;
-
-        return a.title.localeCompare(b.title);
-      });
-
       setGames(finalGames);
       setLoading(false);
     });
