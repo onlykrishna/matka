@@ -490,7 +490,13 @@ function HomePage() {
 
   useEffect(() => {
     // Listen to real-time updates from games collection
-    const q = query(collection(db, "games"), orderBy("created_at", "desc"));
+    const q = query(
+      collection(db, "games"), 
+      where("status", "in", ["open", "completed"]), 
+      orderBy("created_at", "desc"), 
+      limit(100)
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allGames = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -510,138 +516,76 @@ function HomePage() {
       const daY = String(yesterday.getDate()).padStart(2, '0');
       const yesterdayStr = `${yrY}-${moY}-${daY}`;
 
-      // Custom weight-based sorting sequence
-      const customOrder = {
-        'SADAR BAJAR': 1,
-        'GWALIOR': 2,
-        'DELHI BAZAAR': 3,
-        'DELHI BAZAR': 3,
-        'TAJ': 4,
-        'DELHI NOON': 5,
-        'INDIA BAZAAR': 6,
-        'SHREE GANESH': 7,
-        'FARIDABAD': 8,
-        'NEW FARIDABAD': 9,
-        'GHAZIABAD': 10,
-        'GALI': 11,
-        'DISAWAR': 12,
-        'RANCHI': 13
-      };
-
-      const rank = { 'PLAY NOW': 1, 'COMING UP': 2, 'TIME OUT': 3 };
-
-      // UI Logic: Group by title, then for each title determine number1 (Yesterday) and number2 (Today)
-      const marketGroups = {};
+      // UI Logic: Group by title, then for each title determine number1 (Kal) and number2 (Aaj)
+      const marketTitles = new Set();
       allGames.forEach(g => {
-        const title = (g.title || '').toUpperCase().trim();
-        if (!title || title === 'SADAR BAZAR') return;
-        
-        // Only show games that exist in active game_markets (instantly hide deleted games)
-        if (activeMarketTitles && !activeMarketTitles.has(title)) return;
-        
-        if (!marketGroups[title]) marketGroups[title] = {};
-        
-        // Extract date from created_at or ID
-        let gDate = '';
-        if (g.created_at?.toDate) {
-          gDate = g.created_at.toDate().toISOString().split('T')[0];
-        } else if (g.id.includes('_')) {
-          gDate = g.id.split('_').pop();
+        const t = (g.title || '').toUpperCase().trim();
+        if (t && t !== 'SADAR BAZAR' && (!activeMarketTitles || activeMarketTitles.has(t))) {
+          marketTitles.add(t);
         }
-
-        // Capture absolute latest (first one seen since allGames is sorted desc)
-        if (!marketGroups[title].latest) {
-           marketGroups[title].latest = g;
-        }
-
-        // Capture specific today and yesterday entries for number resolution
-        if (gDate === todayStr && !marketGroups[title].today) marketGroups[title].today = g;
-        if (gDate === yesterdayStr && !marketGroups[title].yesterday) marketGroups[title].yesterday = g;
       });
 
-      const finalGames = Object.keys(marketGroups).map(title => {
-        const group = marketGroups[title];
-        
-        // Find all sessions for this specific market title
+      const finalGames = Array.from(marketTitles).map(title => {
         const sessions = allGames.filter(g => (g.title || '').toUpperCase().trim() === title);
-        // Sort sessions by creation time descending (latest first)
-        sessions.sort((a, b) => {
-          const tA = a.created_at?.toMillis?.() || 0;
-          const tB = b.created_at?.toMillis?.() || 0;
-          return tB - tA;
-        });
-
+        
+        // Find the "Current" active or most recent session
         const openSession = sessions.find(s => s.status === 'open');
         const completedSessions = sessions.filter(s => s.status === 'completed');
         
-        const displayGame = openSession ? { ...openSession } : (completedSessions[0] ? { ...completedSessions[0] } : { ...group.latest });
+        const base = openSession || completedSessions[0] || sessions[0];
+        if (!base) return null;
+
+        const displayGame = { ...base };
+
+        // FETCH BY CHART DATES
+        // Search for results that match today/yesterday officialResultDate
+        const resultToday = sessions.find(s => s.officialResultDate === todayStr);
+        const resultYesterday = sessions.find(s => s.officialResultDate === yesterdayStr);
 
         if (openSession) {
-          // If a session is currently OPEN, it is the active "Today's" game.
-          // Kal = Result of the most recent completed session.
-          // Aaj = XX (waiting for result).
-          displayGame.number1 = completedSessions[0]?.number2 || 'XX';
+          // 1. GAME IS LIVE AGAIN
+          // Aaj must be XX (it will close Tomorrow/Later)
           displayGame.number2 = 'XX';
+          // Kal must show the "Latest Result" (even if it was dated Today)
+          displayGame.number1 = resultToday?.number2 || resultYesterday?.number2 || 'XX';
         } else {
-          // If no session is OPEN, we show the two most recent results.
-          // Aaj = Most recent completed result.
-          // Kal = Second most recent completed result.
-          displayGame.number2 = completedSessions[0]?.number2 || 'XX';
-          displayGame.number1 = completedSessions[1]?.number2 || 'XX';
+          // 2. GAME IS NOT LIVE (Idle or Just Published)
+          // Aaj shows today's result if published
+          displayGame.number2 = resultToday?.number2 || 'XX';
+          // Kal shows yesterday's result
+          displayGame.number1 = resultYesterday?.number2 || 'XX';
         }
 
         return displayGame;
-      });
+      }).filter(Boolean);
 
-      // Find the latest result among all games
-      const gamesWithResults = allGames.filter(g => g.number2 && g.number2 !== 'XX' && (g.title || '').toUpperCase().trim() !== 'SADAR BAZAR');
-      gamesWithResults.sort((a, b) => {
-        // Primary Sort: result_published_at (Most recent publish first)
-        const pubA = a.result_published_at?.toMillis?.() || 0;
-        const pubB = b.result_published_at?.toMillis?.() || 0;
-        if (pubA !== pubB) return pubB - pubA;
-
-        // Fallback 1: created_at (Date)
-        const d1 = (a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || Date.now())).toISOString().split('T')[0];
-        const d2 = (b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || Date.now())).toISOString().split('T')[0];
-        if (d1 !== d2) return d2.localeCompare(d1);
-
-        // Fallback 2: closeTime (String time)
-        return (b.closeTime || '').localeCompare(a.closeTime || '');
-      });
-      setLatestResult(gamesWithResults[0] || null);
-
-      const getDayWeight = (createdAt) => {
-        if (!createdAt) return 2;
-        const d = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-        const isSameDay = (d1Str, d2Str) => d1Str === d2Str;
-
-        const dStr = d.toISOString().split('T')[0];
-        if (isSameDay(dStr, todayStr)) return 0;
-        if (isSameDay(dStr, yesterdayStr)) return 1;
-        return 2;
+      // Sorting for Display
+      const customOrder = {
+        'SADAR BAJAR': 1, 'GWALIOR': 2, 'DELHI BAZAAR': 3, 'TAJ': 4, 'DELHI NOON': 5,
+        'INDIA BAZAAR': 6, 'SHREE GANESH': 7, 'FARIDABAD': 8, 'NEW FARIDABAD': 9,
+        'GHAZIABAD': 10, 'GALI': 11, 'DISAWAR': 12, 'RANCHI': 13
       };
+      const rank = { 'PLAY NOW': 1, 'COMING UP': 2, 'TIME OUT': 3 };
 
       finalGames.sort((a, b) => {
-        const dayA = getDayWeight(a.created_at);
-        const dayB = getDayWeight(b.created_at);
-        if (dayA !== dayB) return dayA - dayB;
-
-        const stateA = getGameButtonState(a.openTime, a.closeTime, a.created_at).text;
-        const stateB = getGameButtonState(b.openTime, b.closeTime, b.created_at).text;
-        const rankDiff = (rank[stateA] || 4) - (rank[stateB] || 4);
-        if (rankDiff !== 0) return rankDiff;
-
-        const titleA = a.title?.toUpperCase() || '';
-        const titleB = b.title?.toUpperCase() || '';
-        const weightA = customOrder[titleA] || 999;
-        const weightB = customOrder[titleB] || 999;
-        if (weightA !== weightB) return weightA - weightB;
-
-        return a.title.localeCompare(b.title);
+        const titleA = a.title?.toUpperCase().trim() || '';
+        const titleB = b.title?.toUpperCase().trim() || '';
+        const orderA = customOrder[titleA] || 99;
+        const orderB = customOrder[titleB] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return 0;
       });
 
       setGames(finalGames);
+
+      // Latest Result Marquee
+      const gamesWithResults = allGames.filter(g => g.number2 && g.number2 !== 'XX' && (g.title || '').toUpperCase().trim() !== 'SADAR BAZAR');
+      gamesWithResults.sort((a, b) => {
+        const pubA = a.result_published_at?.toMillis?.() || 0;
+        const pubB = b.result_published_at?.toMillis?.() || 0;
+        return pubB - pubA;
+      });
+      setLatestResult(gamesWithResults[0] || null);
       setLoading(false);
     });
 
