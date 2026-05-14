@@ -497,18 +497,11 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Get local date strings (YYYY-MM-DD)
+      // Get local boundaries for Today and Yesterday
       const now = new Date();
-      const yr = now.getFullYear();
-      const mo = String(now.getMonth() + 1).padStart(2, '0');
-      const da = String(now.getDate()).padStart(2, '0');
-      const todayStr = `${yr}-${mo}-${da}`;
       
-      const yesterday = new Date(now.getTime() - 86400000);
-      const yrY = yesterday.getFullYear();
-      const moY = String(yesterday.getMonth() + 1).padStart(2, '0');
-      const daY = String(yesterday.getDate()).padStart(2, '0');
-      const yesterdayStr = `${yrY}-${moY}-${daY}`;
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const yesterdayStart = todayStart - 86400000;
 
       // Group games by title
       const marketGroups = {};
@@ -528,11 +521,20 @@ function HomePage() {
         const openSession = sessions.find(s => s.status === 'open');
         const displayGame = { ...(openSession || sessions[0]) };
 
-        // SIMPLE BOX LOGIC:
-        // Aaj (Today) = Game that officially resulted TODAY
-        // Kal (Yesterday) = Game that officially resulted YESTERDAY
-        const todayRes = sessions.find(s => s.officialResultDate === todayStr && s.status === 'completed');
-        const yesterdayRes = sessions.find(s => s.officialResultDate === yesterdayStr && s.status === 'completed');
+        // SIMPLE PUBLICATION-BASED LOGIC:
+        // Aaj (Today) = Any result published today
+        // Kal (Yesterday) = Any result published yesterday
+        const todayRes = sessions.find(s => {
+          if (s.status !== 'completed' || !s.result_published_at) return false;
+          const pubTime = s.result_published_at.toMillis ? s.result_published_at.toMillis() : 0;
+          return pubTime >= todayStart;
+        });
+
+        const yesterdayRes = sessions.find(s => {
+          if (s.status !== 'completed' || !s.result_published_at) return false;
+          const pubTime = s.result_published_at.toMillis ? s.result_published_at.toMillis() : 0;
+          return pubTime >= yesterdayStart && pubTime < todayStart;
+        });
 
         displayGame.number2 = todayRes ? todayRes.number2 : 'XX';
         displayGame.number1 = yesterdayRes ? yesterdayRes.number2 : 'XX';
