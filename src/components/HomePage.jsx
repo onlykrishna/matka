@@ -97,7 +97,7 @@ const getGameButtonState = (openStr, closeStr, createdAt) => {
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
   if (openMin <= closeMin) {
-    if (nowMin < openMin) return { text: 'COMING UP', color: '#FFCE3B', disabled: true };
+    if (nowMin < openMin) return { text: 'TIME OUT', color: '#D32F2F', disabled: true };
     if (nowMin >= closeMin) return { text: 'TIME OUT', color: '#D32F2F', disabled: true };
     return { text: 'PLAY NOW', color: '#1B5E20', disabled: false };
   } else {
@@ -105,7 +105,7 @@ const getGameButtonState = (openStr, closeStr, createdAt) => {
     if (nowMin >= openMin || nowMin < closeMin) {
       return { text: 'PLAY NOW', color: '#1B5E20', disabled: false };
     } else {
-      return { text: 'COMING UP', color: '#FFCE3B', disabled: true };
+      return { text: 'TIME OUT', color: '#D32F2F', disabled: true };
     }
   }
 };
