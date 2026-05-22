@@ -887,14 +887,40 @@ const AdminPanel = () => {
         previousWinningNumber = Math.floor(Math.random() * 100).toString().padStart(2, '0');
       }
 
-      await addDoc(collection(db, "games"), {
+      const safeTitle = gameTitle.replace(/[^a-zA-Z0-9]/g, '_');
+      const now = new Date();
+      
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      
+      const gameId = `${safeTitle}_${todayStr}`;
+
+      let resultDateVal = todayStr;
+      const parseMin = (t) => {
+        if (!t) return 0;
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+      if (parseMin(openTime) > parseMin(closeTime)) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const t_yyyy = tomorrow.getFullYear();
+        const t_mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const t_dd = String(tomorrow.getDate()).padStart(2, '0');
+        resultDateVal = `${t_yyyy}-${t_mm}-${t_dd}`;
+      }
+
+      await setDoc(doc(db, "games", gameId), {
         title: gameTitle,
         openTime: openTime,
         closeTime: closeTime,
         number1: previousWinningNumber,
         number2: 'XX',
         status: 'open',
-        created_at: serverTimestamp()
+        created_at: serverTimestamp(),
+        resultDate: resultDateVal
       });
       setGameTitle('');
       setOpenTime('');
@@ -1893,8 +1919,13 @@ const AdminPanel = () => {
                   </thead>
                   <tbody>
                     {games.filter(g => {
-                       const today = new Date().toISOString().split('T')[0];
-                       const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
+                       const now = new Date();
+                       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                       let gameDate = '';
+                       if (g.created_at?.toDate) {
+                         const d = g.created_at.toDate();
+                         gameDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                       }
                        const rDate = g.resultDate || gameDate;
                        return rDate === today || gameDate === today;
                     }).map((g) => (
@@ -1941,8 +1972,13 @@ const AdminPanel = () => {
                       </tr>
                     ))}
                     {games.filter(g => {
-                       const today = new Date().toISOString().split('T')[0];
-                       const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
+                       const now = new Date();
+                       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                       let gameDate = '';
+                       if (g.created_at?.toDate) {
+                         const d = g.created_at.toDate();
+                         gameDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                       }
                        const rDate = g.resultDate || gameDate;
                        return rDate === today || gameDate === today;
                     }).length === 0 && (
@@ -2138,9 +2174,15 @@ const AdminPanel = () => {
                   <tbody>
                     {games.filter(g => {
                       if (g.status !== 'completed') return false;
-                      const today = new Date().toISOString().split('T')[0];
-                      const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
-                      return gameDate === today;
+                      const now = new Date();
+                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                      let pubDate = '';
+                      if (g.result_published_at?.toDate) {
+                        const d = g.result_published_at.toDate();
+                        pubDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                      }
+                      const rDate = g.resultDate || '';
+                      return pubDate === today || rDate === today;
                     }).map((g) => (
                       <tr key={g.id}>
                         <td><strong>{g.title}</strong></td>
@@ -2160,9 +2202,15 @@ const AdminPanel = () => {
                     ))}
                     {games.filter(g => {
                       if (g.status !== 'completed') return false;
-                      const today = new Date().toISOString().split('T')[0];
-                      const gameDate = g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : '';
-                      return gameDate === today;
+                      const now = new Date();
+                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                      let pubDate = '';
+                      if (g.result_published_at?.toDate) {
+                        const d = g.result_published_at.toDate();
+                        pubDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                      }
+                      const rDate = g.resultDate || '';
+                      return pubDate === today || rDate === today;
                     }).length === 0 && (
                       <tr><td colSpan="4" style={{textAlign: 'center', padding: '20px', color: '#999'}}>No results published yet today.</td></tr>
                     )}

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Share as CapacitorShare } from '@capacitor/share';
-import { 
-  LayoutDashboard, 
-  Bell, 
-  HelpCircle, 
-  Smartphone, 
+import {
+  LayoutDashboard,
+  Bell,
+  HelpCircle,
+  Smartphone,
   LogOut,
   X,
   CreditCard,
@@ -164,15 +164,15 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
 
         <h3 className="market-name" style={{ margin: 0, fontSize: '1.25rem' }}>{title}</h3>
       </div>
-      
+
       <div className="game-card-middle">
         {/* Left Section: Roulette Wheel */}
         <div className="wheel-section">
           <div className="wheel-container">
-            <img 
-              src={roulette} 
-              alt="Wheel" 
-              className="spinning roulette-img" 
+            <img
+              src={roulette}
+              alt="Wheel"
+              className="spinning roulette-img"
             />
           </div>
         </div>
@@ -183,7 +183,7 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
             <span className="result-label" style={{ color: '#0D47A1' }}>कल</span>
             <div className="result-box red">{number1}</div>
           </div>
-          
+
           <div className="live-badge-mini blinking-blue">
             LIVE
           </div>
@@ -196,11 +196,11 @@ function GameCard({ id, title, number1, number2, openTime, closeTime, status, cr
 
         {/* Right Section: Action Button */}
         <div className="action-section">
-          <button 
-            className={`play-now-btn ${!btnState.disabled ? 'pop-animation' : ''}`} 
+          <button
+            className={`play-now-btn ${!btnState.disabled ? 'pop-animation' : ''}`}
             onClick={handlePlayClick}
-            style={{ 
-              backgroundColor: btnState.color, 
+            style={{
+              backgroundColor: btnState.color,
               color: btnState.color === '#FFCE3B' ? '#000' : '#FFF',
               cursor: btnState.disabled ? 'not-allowed' : 'pointer',
               opacity: btnState.disabled ? 0.9 : 1
@@ -241,11 +241,11 @@ const FLOWER_CONFIG = [
 const FlowerShower = () => (
   <div className="flower-shower-container">
     {FLOWER_CONFIG.map((flower, i) => (
-      <div 
-        key={i} 
-        className="falling-flower" 
-        style={{ 
-          left: flower.left, 
+      <div
+        key={i}
+        className="falling-flower"
+        style={{
+          left: flower.left,
           animationDelay: flower.delay,
           animationDuration: flower.duration
         }}
@@ -349,7 +349,7 @@ function HomePage() {
       try {
         const now = new Date();
         const currentHHmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-        
+
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
         const dd = String(now.getDate()).padStart(2, '0');
@@ -368,28 +368,28 @@ function HomePage() {
         const t_mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const t_dd = String(tomorrow.getDate()).padStart(2, '0');
         const tomorrowStr = `${t_yyyy}-${t_mm}-${t_dd}`;
-        
+
         const qMarkets = query(collection(db, "game_markets"), where("isActive", "==", true));
         const marketsSnap = await getDocs(qMarkets);
-        
+
         for (const marketDoc of marketsSnap.docs) {
           const market = marketDoc.data();
-          
+
           // PRECISION RENEWAL: Only create today's doc if current time is >= opening time
           if (currentHHmm < market.openTime) continue;
 
           const safeTitle = market.title.replace(/[^a-zA-Z0-9]/g, '_');
           const gameId = `${safeTitle}_${todayStr}`;
-          
+
           const gameRef = doc(db, "games", gameId);
           const gameSnap = await getDoc(gameRef);
-          
+
           if (!gameSnap.exists()) {
             // Find Yesterday's result
             const y_gameId = `${safeTitle}_${yesterdayStr}`;
             const y_gameSnap = await getDoc(doc(db, "games", y_gameId));
             let prevWinningNumber = 'XX';
-            
+
             if (y_gameSnap.exists()) {
               prevWinningNumber = y_gameSnap.data().number2 || 'XX';
             } else {
@@ -409,12 +409,12 @@ function HomePage() {
 
             let resultDateVal = todayStr;
             const parseMin = (t) => {
-               if(!t) return 0;
-               const [h,m] = t.split(':').map(Number);
-               return h*60+m;
+              if (!t) return 0;
+              const [h, m] = t.split(':').map(Number);
+              return h * 60 + m;
             };
-            if(parseMin(market.openTime) > parseMin(market.closeTime)) {
-                resultDateVal = tomorrowStr;
+            if (parseMin(market.openTime) > parseMin(market.closeTime)) {
+              resultDateVal = tomorrowStr;
             }
 
             await setDoc(gameRef, {
@@ -547,26 +547,26 @@ function HomePage() {
       allGames.forEach(g => {
         const title = (g.title || '').toUpperCase().trim();
         if (!title || title === 'SADAR BAZAR') return;
-        
+
         // Only show games that exist in active game_markets (instantly hide deleted games)
         if (activeMarketTitles && !activeMarketTitles.has(title)) return;
-        
+
         if (!marketGroups[title]) marketGroups[title] = {};
-        
+
         // Extract strict resultDate (fallback to created_at or ID if missing for legacy games)
         let rDate = g.resultDate;
         if (!rDate) {
           if (g.created_at?.toDate) {
             let baseDate = new Date(g.created_at.toDate());
-            
+
             if (g.openTime && g.closeTime) {
-               const oTime = g.openTime.includes('T') ? g.openTime.split('T')[1].substring(0, 5) : g.openTime;
-               const cTime = g.closeTime.includes('T') ? g.closeTime.split('T')[1].substring(0, 5) : g.closeTime;
-               const [oH, oM] = oTime.split(':').map(Number);
-               const [cH, cM] = cTime.split(':').map(Number);
-               if ((oH * 60 + oM) > (cH * 60 + cM)) {
-                 baseDate.setDate(baseDate.getDate() + 1);
-               }
+              const oTime = g.openTime.includes('T') ? g.openTime.split('T')[1].substring(0, 5) : g.openTime;
+              const cTime = g.closeTime.includes('T') ? g.closeTime.split('T')[1].substring(0, 5) : g.closeTime;
+              const [oH, oM] = oTime.split(':').map(Number);
+              const [cH, cM] = cTime.split(':').map(Number);
+              if ((oH * 60 + oM) > (cH * 60 + cM)) {
+                baseDate.setDate(baseDate.getDate() + 1);
+              }
             }
             // Use local date string to avoid timezone offset issues
             const year = baseDate.getFullYear();
@@ -580,7 +580,7 @@ function HomePage() {
 
         // Capture absolute latest (first one seen since allGames is sorted desc) for active play state
         if (!marketGroups[title].latest) {
-           marketGroups[title].latest = g;
+          marketGroups[title].latest = g;
         }
 
         // Capture specific today and yesterday entries by strict resultDate
@@ -591,7 +591,7 @@ function HomePage() {
       const finalGames = Object.keys(marketGroups).map(title => {
         const group = marketGroups[title];
         const displayGame = { ...group.latest };
-        
+
         // AUTHENTIC NUMBERS mapped strictly to Result Date:
         // number1 (Kal) = Result published for yesterday
         // number2 (Aaj) = Result published for today
@@ -669,7 +669,7 @@ function HomePage() {
     });
 
     const handleStorage = () => {
-      setHasUnread(false); 
+      setHasUnread(false);
     };
     window.addEventListener('storage', handleStorage);
     return () => {
@@ -712,15 +712,15 @@ function HomePage() {
         orderBy("created_at", "desc"),
         limit(20) // Fetch extra to filter out open games on client side
       );
-      
+
       const snap = await getDocs(q);
       const data = snap.docs
         .map(doc => {
           const d = doc.data();
           let displayDate = 'Recent';
-          
+
           if (d.created_at?.toDate) {
-            displayDate = d.created_at.toDate().toLocaleDateString('en-IN', {day:'numeric', month:'short', year: 'numeric'});
+            displayDate = d.created_at.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
           } else {
             // Fallback: Extract date from ID (e.g. GALI_2026-04-20)
             const parts = doc.id.split('_');
@@ -728,15 +728,15 @@ function HomePage() {
               const dateStr = parts[parts.length - 1]; // "2026-04-20"
               const parsedDate = new Date(dateStr);
               if (!isNaN(parsedDate)) {
-                displayDate = parsedDate.toLocaleDateString('en-IN', {day:'numeric', month:'short', year: 'numeric'});
+                displayDate = parsedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
               }
             }
           }
 
-          return { 
-            id: doc.id, 
+          return {
+            id: doc.id,
             ...d,
-            displayDate 
+            displayDate
           };
         })
         .filter(game => game.number2 !== 'XX' && game.number2 !== undefined) // Only show games with results
@@ -752,7 +752,7 @@ function HomePage() {
         const fallData = fallSnap.docs
           .map(doc => ({ id: doc.id, ...doc.data(), displayDate: doc.id.split('_').pop() }))
           .filter(g => g.number2 !== 'XX')
-          .sort((a,b) => b.id.localeCompare(a.id))
+          .sort((a, b) => b.id.localeCompare(a.id))
           .slice(0, 10);
         setPastResultsData(fallData);
       } catch (innerErr) {
@@ -773,15 +773,15 @@ function HomePage() {
   return (
     <div className="home-container">
       {showAuthPopup && <AuthPopup onClose={() => setShowAuthPopup(false)} onNavigate={navigate} />}
-      
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
-        userName={userName} 
-        userPhone={userPhone} 
+
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        userName={userName}
+        userPhone={userPhone}
         isLoggedIn={isLoggedIn}
       />
-      
+
       {/* Top Header (OPTIMIZED) */}
       <header className="home-header">
         <div className="header-left">
@@ -790,7 +790,7 @@ function HomePage() {
           </button>
           <img src={logo} alt="Logo" className="header-logo-img" />
         </div>
-        
+
         <div className="header-center">
           <span className="brand-name-hindi">स्वामी जी मटका</span>
         </div>
@@ -811,11 +811,11 @@ function HomePage() {
       <section className="banner-section">
         <div className="banner-slider">
           {banners.map((img, index) => (
-            <img 
+            <img
               key={index}
-              src={img} 
-              alt={`Banner ${index + 1}`} 
-              className={`slider-img ${index === currentBanner ? 'active' : ''}`} 
+              src={img}
+              alt={`Banner ${index + 1}`}
+              className={`slider-img ${index === currentBanner ? 'active' : ''}`}
             />
           ))}
         </div>
@@ -848,8 +848,8 @@ function HomePage() {
           <button className="action-pill yellow" onClick={() => isLoggedIn ? navigate('/deposit') : setShowAuthPopup(true)}>
             <span className="pill-content">₹ पैसा डालें</span>
           </button>
-          <button 
-            className="action-pill green" 
+          <button
+            className="action-pill green"
             onClick={() => {
               if (socialLinks.whatsapp) {
                 window.location.href = `https://wa.me/${socialLinks.whatsapp.replace(/\D/g, '')}`;
@@ -867,7 +867,7 @@ function HomePage() {
               <CreditCard size={20} /> WITHDRAWAL
             </div>
           </button>
-          <button 
+          <button
             className="action-pill blue"
             onClick={() => window.location.reload()}
           >
@@ -915,12 +915,12 @@ function HomePage() {
           </div>
         ) : (
           games.map((game) => (
-            <GameCard 
-              key={game.id} 
-              {...game} 
-              isLoggedIn={isLoggedIn} 
+            <GameCard
+              key={game.id}
+              {...game}
+              isLoggedIn={isLoggedIn}
               onAuthRequired={() => setShowAuthPopup(true)}
-              onViewClick={() => handleFetchPastResults(game.title)} 
+              onViewClick={() => handleFetchPastResults(game.title)}
             />
           ))
         )}
@@ -928,15 +928,15 @@ function HomePage() {
 
       {/* Bottom Navigation */}
       <nav className="bottom-nav">
-        <div 
-          className="nav-item" 
+        <div
+          className="nav-item"
           onClick={() => navigate('/my-bids')}
         >
           <History size={20} />
           <span>My Bids</span>
         </div>
-        <div 
-          className="nav-item" 
+        <div
+          className="nav-item"
           onClick={() => isLoggedIn ? navigate('/funds') : setShowAuthPopup(true)}
         >
           <div className="funds-icon">₹</div>
@@ -947,8 +947,8 @@ function HomePage() {
             <Home color="white" fill="white" size={24} />
           </div>
         </div>
-        <div 
-          className="nav-item" 
+        <div
+          className="nav-item"
           onClick={handleShare}
         >
           <Share2 size={20} />
@@ -967,45 +967,45 @@ function HomePage() {
 
       {/* ANDROID-ONLY INSTALL MODAL */}
       {showInstallInfo && (
-        <div 
-          className="popup-overlay" 
-          onClick={() => setShowInstallInfo(false)} 
+        <div
+          className="popup-overlay"
+          onClick={() => setShowInstallInfo(false)}
           style={{
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            background: 'rgba(0,0,0,0.8)', 
-            zIndex: 3000, 
-            display: 'flex', 
-            alignItems: 'flex-end', 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.8)',
+            zIndex: 3000,
+            display: 'flex',
+            alignItems: 'flex-end',
             justifyContent: 'center'
           }}
         >
-          <div 
-            className="popup-content" 
-            onClick={e => e.stopPropagation()} 
+          <div
+            className="popup-content"
+            onClick={e => e.stopPropagation()}
             style={{
-              background: 'white', 
-              borderTopLeftRadius: '24px', 
-              borderTopRightRadius: '24px', 
-              width: '100%', 
-              maxWidth: '500px', 
-              padding: '30px 20px', 
+              background: 'white',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              width: '100%',
+              maxWidth: '500px',
+              padding: '30px 20px',
               position: 'relative'
             }}
           >
-            <button 
-              onClick={() => setShowInstallInfo(false)} 
+            <button
+              onClick={() => setShowInstallInfo(false)}
               style={{
-                position: 'absolute', 
-                right: '20px', 
-                top: '20px', 
-                background: '#f5f5f5', 
-                border: 'none', 
-                borderRadius: '50%', 
-                padding: '5px', 
+                position: 'absolute',
+                right: '20px',
+                top: '20px',
+                background: '#f5f5f5',
+                border: 'none',
+                borderRadius: '50%',
+                padding: '5px',
                 cursor: 'pointer'
               }}
             >
@@ -1014,13 +1014,13 @@ function HomePage() {
 
             <div style={{ textAlign: 'center', marginBottom: '25px' }}>
               <div style={{
-                width: '60px', 
-                height: '60px', 
-                background: '#E8F5E9', 
-                borderRadius: '18px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+                width: '60px',
+                height: '60px',
+                background: '#E8F5E9',
+                borderRadius: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 margin: '0 auto 15px'
               }}>
                 <Download size={32} color="#2E7D32" />
@@ -1031,25 +1031,25 @@ function HomePage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{
-                display: 'flex', 
-                gap: '15px', 
-                alignItems: 'flex-start', 
-                padding: '15px', 
-                background: '#F0FFF4', 
-                borderRadius: '12px', 
+                display: 'flex',
+                gap: '15px',
+                alignItems: 'flex-start',
+                padding: '15px',
+                background: '#F0FFF4',
+                borderRadius: '12px',
                 border: '1px solid #C6F6D5'
               }}>
                 <div style={{
-                  background: '#2E7D32', 
-                  color: 'white', 
-                  width: '24px', 
-                  height: '24px', 
-                  borderRadius: '50%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
+                  background: '#2E7D32',
+                  color: 'white',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
                   flexShrink: 0
                 }}>1</div>
                 <div>
@@ -1059,25 +1059,25 @@ function HomePage() {
               </div>
 
               <div style={{
-                display: 'flex', 
-                gap: '15px', 
-                alignItems: 'flex-start', 
-                padding: '15px', 
-                background: '#FFF5F5', 
-                borderRadius: '12px', 
+                display: 'flex',
+                gap: '15px',
+                alignItems: 'flex-start',
+                padding: '15px',
+                background: '#FFF5F5',
+                borderRadius: '12px',
                 border: '1px solid #FED7D7'
               }}>
                 <div style={{
-                  background: '#C53030', 
-                  color: 'white', 
-                  width: '24px', 
-                  height: '24px', 
-                  borderRadius: '50%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
+                  background: '#C53030',
+                  color: 'white',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
                   flexShrink: 0
                 }}>2</div>
                 <div>
@@ -1087,18 +1087,18 @@ function HomePage() {
               </div>
             </div>
 
-            <button 
+            <button
               onClick={() => setShowInstallInfo(false)}
               style={{
-                width: '100%', 
-                marginTop: '25px', 
-                padding: '15px', 
-                background: '#2E7D32', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '12px', 
-                fontWeight: 'bold', 
-                cursor: 'pointer', 
+                width: '100%',
+                marginTop: '25px',
+                padding: '15px',
+                background: '#2E7D32',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
                 fontSize: '1rem'
               }}
             >
@@ -1109,43 +1109,43 @@ function HomePage() {
       )}
       {/* Past Results Modal (FULL SCREEN) */}
       {viewingPastResults && (
-        <div className="popup-overlay" onClick={() => setViewingPastResults(null)} style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'white', zIndex: 2000, display: 'flex', flexDirection: 'column'}}>
+        <div className="popup-overlay" onClick={() => setViewingPastResults(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'white', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
-          <div style={{background: 'linear-gradient(135deg, #1A237E 0%, #0D47A1 100%)', padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px', color: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.2)'}}>
-            <button onClick={() => setViewingPastResults(null)} style={{background: 'none', border: 'none', display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '5px'}}>
+          <div style={{ background: 'linear-gradient(135deg, #1A237E 0%, #0D47A1 100%)', padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px', color: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+            <button onClick={() => setViewingPastResults(null)} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '5px' }}>
               <X size={24} color="white" />
             </button>
             <div>
-              <h2 style={{margin: 0, fontSize: '1.2rem', fontWeight: 'bold'}}>Chart: {viewingPastResults}</h2>
-              <p style={{margin: 0, fontSize: '0.8rem', opacity: 0.8}}>Showing Last 10 Results</p>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>Chart: {viewingPastResults}</h2>
+              <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.8 }}>Showing Last 10 Results</p>
             </div>
           </div>
-          
-          <div style={{overflowY: 'auto', padding: '20px', flex: 1, background: '#F8F9FA'}}>
+
+          <div style={{ overflowY: 'auto', padding: '20px', flex: 1, background: '#F8F9FA' }}>
             {isFetchingPast ? (
-              <div style={{textAlign: 'center', padding: '50px 20px'}}>
-                <div style={{margin: '0 auto 15px', width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #1A237E', borderRadius: '50%', animation: 'spin 1s linear infinite'}}></div>
-                <p style={{color: '#666', fontWeight: 'bold'}}>Generating Chart...</p>
+              <div style={{ textAlign: 'center', padding: '50px 20px' }}>
+                <div style={{ margin: '0 auto 15px', width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #1A237E', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <p style={{ color: '#666', fontWeight: 'bold' }}>Generating Chart...</p>
               </div>
             ) : pastResultsData.length === 0 ? (
-              <div style={{textAlign: 'center', padding: '50px 20px', color: '#999'}}>
-                <Calendar size={48} style={{opacity: 0.3, marginBottom: '15px'}} />
-                <p style={{fontWeight: 'bold', fontSize: '1.1rem'}}>No History Available</p>
+              <div style={{ textAlign: 'center', padding: '50px 20px', color: '#999' }}>
+                <Calendar size={48} style={{ opacity: 0.3, marginBottom: '15px' }} />
+                <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>No History Available</p>
                 <span>Results for this game haven't been published yet.</span>
               </div>
             ) : (
-              <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', padding: '10px 15px', background: '#EEE', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.8rem', color: '#666', textTransform: 'uppercase'}}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 15px', background: '#EEE', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.8rem', color: '#666', textTransform: 'uppercase' }}>
                   <span>Date / तारीख</span>
                   <span>Result / रिजल्ट</span>
                 </div>
                 {pastResultsData.map((res, i) => (
-                  <div key={res.id || i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'white', borderRadius: '12px', border: '1px solid #E0E4EC', boxShadow: '0 2px 5px rgba(0,0,0,0.03)'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                      <Calendar size={18} color="#1A237E" style={{opacity: 0.8}} />
-                      <span style={{color: '#1B2559', fontWeight: '800', fontSize: '1rem'}}>{res.displayDate}</span>
+                  <div key={res.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', background: 'white', borderRadius: '12px', border: '1px solid #E0E4EC', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Calendar size={18} color="#1A237E" style={{ opacity: 0.8 }} />
+                      <span style={{ color: '#1B2559', fontWeight: '800', fontSize: '1rem' }}>{res.displayDate}</span>
                     </div>
-                    <div style={{width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem', boxShadow: '0 3px 6px rgba(46,125,50,0.3)', border: '2px solid white'}}>
+                    <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem', boxShadow: '0 3px 6px rgba(46,125,50,0.3)', border: '2px solid white' }}>
                       {res.number2 || 'XX'}
                     </div>
                   </div>
