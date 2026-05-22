@@ -378,7 +378,7 @@ function HomePage() {
           // PRECISION RENEWAL: Only create today's doc if current time is >= opening time
           if (currentHHmm < market.openTime) continue;
 
-          const safeTitle = market.title.replace(/[^a-zA-Z0-9]/g, '_');
+          const safeTitle = market.title.replace(/[^\p{L}\p{N}]/gu, '_');
           const gameId = `${safeTitle}_${todayStr}`;
 
           const gameRef = doc(db, "games", gameId);

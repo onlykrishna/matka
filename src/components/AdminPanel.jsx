@@ -887,7 +887,7 @@ const AdminPanel = () => {
         previousWinningNumber = Math.floor(Math.random() * 100).toString().padStart(2, '0');
       }
 
-      const safeTitle = gameTitle.replace(/[^a-zA-Z0-9]/g, '_');
+      const safeTitle = gameTitle.replace(/[^\p{L}\p{N}]/gu, '_');
       const now = new Date();
       
       const yyyy = now.getFullYear();
@@ -2001,7 +2001,7 @@ const AdminPanel = () => {
                 e.preventDefault();
                 if (!resTitle || !resDate || !resNum) return;
                 
-                const safeTitle = resTitle.replace(/[^a-zA-Z0-9]/g, '_');
+                const safeTitle = resTitle.replace(/[^\p{L}\p{N}]/gu, '_');
                 setIsPublishingResult(true); // Using boolean or string, but true works here.
 
                 try {
