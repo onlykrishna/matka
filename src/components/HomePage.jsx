@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Share as CapacitorShare } from '@capacitor/share';
 import {
@@ -25,7 +25,7 @@ import {
 import Sidebar from './Sidebar';
 import AuthPopup from './AuthPopup';
 import { auth, db } from '../firebase';
-import { collection, onSnapshot, query, orderBy, doc, getDoc, limit, where, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc, limit, where, getDocs, setDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import '../index.css';
 import logo from '../assets/logo.png';
@@ -299,6 +299,8 @@ function HomePage() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [showInstallInfo, setShowInstallInfo] = useState(false);
   const [activeMarketTitles, setActiveMarketTitles] = useState(null);
+  const activeMarketsRef = useRef([]);
+  const allGamesRef = useRef([]);
   const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
@@ -374,17 +376,19 @@ function HomePage() {
         const yesterdayStr = getISTDateString(-1);
         const tomorrowStr = getISTDateString(1);
 
-        const qMarkets = query(collection(db, "game_markets"), where("isActive", "==", true));
-        const marketsSnap = await getDocs(qMarkets);
+        const marketsList = activeMarketsRef.current;
 
-        for (const marketDoc of marketsSnap.docs) {
-          const market = marketDoc.data();
-
+        for (const market of marketsList) {
           // PRECISION RENEWAL: Only create today's doc if current time is >= opening time
           if (currentHHmm < market.openTime) continue;
 
           const safeTitle = market.title.replace(/[^\p{L}\p{N}]/gu, '_');
           const gameId = `${safeTitle}_${todayStr}`;
+
+          // Memory check to drastically save Firestore reads
+          if (allGamesRef.current.some(g => g.id === gameId)) {
+            continue;
+          }
 
           const gameRef = doc(db, "games", gameId);
           const gameSnap = await getDoc(gameRef);
@@ -452,7 +456,16 @@ function HomePage() {
         console.error("Daily Sync Error:", err);
       }
     };
+    
+    // Initial sync on mount
     syncDailyGames();
+    
+    // Periodically sync every 1 minute to ensure games open dynamically precisely on time
+    const intervalId = setInterval(() => {
+      syncDailyGames();
+    }, 60000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -502,11 +515,18 @@ function HomePage() {
     };
   }, []);
 
-  // Listen to active market titles to filter deleted games
+  // Listen to active market titles to filter deleted games and sync cache
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "game_markets"), (snap) => {
-      const titles = new Set(snap.docs.map(doc => (doc.data().title || '').toUpperCase().trim()));
+      const titles = new Set();
+      const marketsData = [];
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.isActive) marketsData.push(data);
+        titles.add((data.title || '').toUpperCase().trim());
+      });
       setActiveMarketTitles(titles);
+      activeMarketsRef.current = marketsData;
     }, (err) => console.error("Error fetching markets", err));
     return () => unsub();
   }, []);
@@ -519,6 +539,8 @@ function HomePage() {
         id: doc.id,
         ...doc.data()
       }));
+      
+      allGamesRef.current = allGames;
 
       // Calculate Day Strings using Strict IST
       const todayStr = getISTDateString(0);
