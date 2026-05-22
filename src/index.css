@@ -516,15 +516,15 @@ h1 {
   background-color: #FFFFFF;
   border-radius: 15px;
   margin: 1rem;
-  padding: 10px;
+  padding: 0;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   border: 1px solid #E0E5F2;
   position: relative;
   overflow: hidden;
-  min-height: 100px;
+  min-height: 120px;
 }
 
 @media (max-width: 380px) {
@@ -573,16 +573,26 @@ h1 {
 }
 
 .live-logo {
-  width: 85px;
-  height: 85px;
+  height: 100%;
+  width: auto;
   object-fit: contain;
-  position: relative;
+  position: absolute;
+  top: 0;
   z-index: 2;
   transition: transform 0.3s ease;
 }
 
+.live-logo.left {
+  left: 0;
+}
+
+.live-logo.right {
+  right: 0;
+}
+
+
 .live-logo:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
 }
 
 .live-info {
@@ -592,7 +602,8 @@ h1 {
   align-items: center;
   justify-content: center;
   position: relative;
-  z-index: 2;
+  z-index: 3;
+  padding: 15px 0;
   text-align: center;
 }
 

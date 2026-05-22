@@ -32,7 +32,7 @@ import logo from '../assets/logo.png';
 import banner1 from '../assets/banner1.png';
 import banner2 from '../assets/banner2.png';
 import banner3 from '../assets/banner3.png';
-import moneyBag from '../assets/money_bag.png';
+import trishulOm from '../assets/trishul_om.png';
 import roulette from '../assets/roulette.png';
 
 
@@ -901,7 +901,7 @@ function HomePage() {
       {/* Live Result Block */}
       <div className="live-result-block">
         <FlowerShower />
-        <img src={moneyBag} alt="Left Icon" className="live-logo" />
+        <img src={trishulOm} alt="Left Icon" className="live-logo left" />
         <div className="live-info">
           <div className="live-title">Result</div>
           {latestResult ? (
@@ -916,7 +916,7 @@ function HomePage() {
             </>
           )}
         </div>
-        <img src={moneyBag} alt="Right Icon" className="live-logo" />
+        <img src={trishulOm} alt="Right Icon" className="live-logo right" />
       </div>
 
       {/* Game List */}
