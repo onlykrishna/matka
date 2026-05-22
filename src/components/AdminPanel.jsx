@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+
+const getISTDateString = (dateObj = new Date()) => {
+  const istDate = new Date(dateObj.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const yyyy = istDate.getFullYear();
+  const mm = String(istDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -2034,7 +2043,7 @@ const AdminPanel = () => {
                         // Crosses midnight: creation date was 1 day before result date
                         const d = new Date(resDate + 'T12:00:00');
                         d.setDate(d.getDate() - 1);
-                        legacyDateStr = d.toISOString().split('T')[0];
+                        legacyDateStr = getISTDateString(d);
                       }
                     }
 
@@ -2099,7 +2108,7 @@ const AdminPanel = () => {
                     type="date" 
                     value={resDate} 
                     onChange={e => setResDate(e.target.value)} 
-                    max={new Date().toISOString().split('T')[0]} 
+                    max={getISTDateString()} 
                     required 
                     style={{padding: '12px', border: '2px solid #E0E5F2', borderRadius: '10px', width: '100%'}} 
                   />
@@ -2150,7 +2159,7 @@ const AdminPanel = () => {
                         <td><strong>{g.title}</strong></td>
                         <td>{g.created_at?.toDate ? g.created_at.toDate().toLocaleDateString() : 'Today'}</td>
                         <td><span style={{color: '#4F46E5', fontWeight: 'bold'}}>{g.status.toUpperCase()}</span></td>
-                        <td><button onClick={() => { setResTitle(g.title); setResDate(g.created_at?.toDate ? g.created_at.toDate().toISOString().split('T')[0] : ''); }} style={{background: '#f0f4ff', color: '#4f46e5', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem'}}>Quick Select</button></td>
+                        <td><button onClick={() => { setResTitle(g.title); setResDate(g.created_at?.toDate ? getISTDateString(g.created_at.toDate()) : ''); }} style={{background: '#f0f4ff', color: '#4f46e5', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem'}}>Quick Select</button></td>
                       </tr>
                     ))}
                   </tbody>

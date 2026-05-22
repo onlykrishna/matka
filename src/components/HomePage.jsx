@@ -34,6 +34,26 @@ import banner2 from '../assets/banner2.png';
 import banner3 from '../assets/banner3.png';
 import trishulOm from '../assets/trishul_om.png';
 import roulette from '../assets/roulette.png';
+const getISTDateObj = () => {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+};
+
+const getISTDateString = (offsetDays = 0, baseDateObj = null) => {
+  let istDate;
+  if (baseDateObj) {
+    istDate = new Date(baseDateObj.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  } else {
+    istDate = getISTDateObj();
+  }
+  
+  if (offsetDays !== 0) {
+    istDate.setDate(istDate.getDate() + offsetDays);
+  }
+  const yyyy = istDate.getFullYear();
+  const mm = String(istDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 
 const formatTime12Hour = (timeStr) => {
@@ -347,27 +367,12 @@ function HomePage() {
   useEffect(() => {
     const syncDailyGames = async () => {
       try {
-        const now = new Date();
-        const currentHHmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        const nowIST = getISTDateObj();
+        const currentHHmm = String(nowIST.getHours()).padStart(2, '0') + ':' + String(nowIST.getMinutes()).padStart(2, '0');
 
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${yyyy}-${mm}-${dd}`;
-
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        const y_yyyy = yesterday.getFullYear();
-        const y_mm = String(yesterday.getMonth() + 1).padStart(2, '0');
-        const y_dd = String(yesterday.getDate()).padStart(2, '0');
-        const yesterdayStr = `${y_yyyy}-${y_mm}-${y_dd}`;
-
-        const tomorrow = new Date(now);
-        tomorrow.setDate(now.getDate() + 1);
-        const t_yyyy = tomorrow.getFullYear();
-        const t_mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
-        const t_dd = String(tomorrow.getDate()).padStart(2, '0');
-        const tomorrowStr = `${t_yyyy}-${t_mm}-${t_dd}`;
+        const todayStr = getISTDateString(0);
+        const yesterdayStr = getISTDateString(-1);
+        const tomorrowStr = getISTDateString(1);
 
         const qMarkets = query(collection(db, "game_markets"), where("isActive", "==", true));
         const marketsSnap = await getDocs(qMarkets);
@@ -515,12 +520,9 @@ function HomePage() {
         ...doc.data()
       }));
 
-      // Calculate Day Strings
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      // Calculate Day Strings using Strict IST
+      const todayStr = getISTDateString(0);
+      const yesterdayStr = getISTDateString(-1);
 
       // Custom weight-based sorting sequence
       const customOrder = {
@@ -609,9 +611,11 @@ function HomePage() {
         const pubB = b.result_published_at?.toMillis?.() || 0;
         if (pubA !== pubB) return pubB - pubA;
 
-        // Fallback 1: created_at (Date)
-        const d1 = (a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || Date.now())).toISOString().split('T')[0];
-        const d2 = (b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || Date.now())).toISOString().split('T')[0];
+        // Fallback 1: created_at (Date) mapped to IST
+        const d1Obj = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at || Date.now());
+        const d2Obj = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at || Date.now());
+        const d1 = getISTDateString(0, d1Obj);
+        const d2 = getISTDateString(0, d2Obj);
         if (d1 !== d2) return d2.localeCompare(d1);
 
         // Fallback 2: closeTime (String time)
@@ -624,7 +628,7 @@ function HomePage() {
         const d = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
         const isSameDay = (d1Str, d2Str) => d1Str === d2Str;
 
-        const dStr = d.toISOString().split('T')[0];
+        const dStr = getISTDateString(0, d);
         if (isSameDay(dStr, todayStr)) return 0;
         if (isSameDay(dStr, yesterdayStr)) return 1;
         return 2;
