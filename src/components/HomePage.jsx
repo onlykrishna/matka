@@ -630,6 +630,23 @@ function HomePage() {
         return 2;
       };
 
+      const getClosingMinutes = (openStr, closeStr) => {
+        if (!openStr || !closeStr) return 9999;
+        const parseMin = (t) => {
+          const timePart = t.includes('T') ? t.split('T')[1].substring(0,5) : t;
+          const [h, m] = timePart.split(':').map(Number);
+          return h * 60 + m;
+        };
+        const oMin = parseMin(openStr);
+        const cMin = parseMin(closeStr);
+        
+        if (oMin > cMin) {
+          // Crosses midnight, so closing time is technically tomorrow
+          return cMin + 1440;
+        }
+        return cMin;
+      };
+
       finalGames.sort((a, b) => {
         const dayA = getDayWeight(a.created_at);
         const dayB = getDayWeight(b.created_at);
@@ -637,16 +654,19 @@ function HomePage() {
 
         const stateA = getGameButtonState(a.openTime, a.closeTime, a.created_at).text;
         const stateB = getGameButtonState(b.openTime, b.closeTime, b.created_at).text;
-        const rankDiff = (rank[stateA] || 4) - (rank[stateB] || 4);
-        if (rankDiff !== 0) return rankDiff;
+        
+        // 1. Group by "Is Closed?" (TIME OUT vs active games)
+        const isClosedA = stateA === 'TIME OUT' ? 1 : 0;
+        const isClosedB = stateB === 'TIME OUT' ? 1 : 0;
+        if (isClosedA !== isClosedB) return isClosedA - isClosedB;
 
-        const titleA = a.title?.toUpperCase() || '';
-        const titleB = b.title?.toUpperCase() || '';
-        const weightA = customOrder[titleA] || 999;
-        const weightB = customOrder[titleB] || 999;
-        if (weightA !== weightB) return weightA - weightB;
+        // 2. Both are either active OR both are closed.
+        // Sort chronologically by closing time (ending early first)
+        const closeMinA = getClosingMinutes(a.openTime, a.closeTime);
+        const closeMinB = getClosingMinutes(b.openTime, b.closeTime);
+        if (closeMinA !== closeMinB) return closeMinA - closeMinB;
 
-        return a.title.localeCompare(b.title);
+        return (a.title || '').localeCompare(b.title || '');
       });
 
       setGames(finalGames);
